@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Download, Library } from "lucide-react";
 import { backendAssetUrl } from "@/lib/backend-url";
-import { fetchActiveRecall, submitActiveRecallAttempt, updateConfusionStatus, updateLearningEfficiency } from "@/lib/api";
-import { toUserId } from "@/lib/user-id";
 import { NotesSectionSkeleton } from "@/components/loading-skeletons";
 import type { ActiveRecallItem, ImportanceExtraction, StudyNotes } from "@/lib/types";
 
@@ -25,12 +23,12 @@ export function ResearchToolkit({
   paperId,
   userEmail,
 }: Props) {
-  const userId = toUserId(userEmail);
+  void paperId;
+  void userEmail;
   const pdfUrl = notesDownloadUrl ? backendAssetUrl(notesDownloadUrl) : null;
   const [recallItems, setRecallItems] = useState<ActiveRecallItem[]>([]);
   const [revealedIds, setRevealedIds] = useState<Record<string, boolean>>({});
   const [revealTimes, setRevealTimes] = useState<Record<string, number>>({});
-  const [recallError, setRecallError] = useState<string | null>(null);
   const noteEntries = studyNotes
       ? [
         { title: "Core Idea", value: studyNotes.core_idea },
@@ -42,35 +40,6 @@ export function ResearchToolkit({
         { title: "Quick Revision", value: studyNotes.quick_revision },
       ]
     : [];
-
-  useEffect(() => {
-    if (!paperId || !studyNotes) {
-      setRecallItems([]);
-      setRevealedIds({});
-      setRevealTimes({});
-      setRecallError(null);
-      return;
-    }
-
-    let cancelled = false;
-    fetchActiveRecall(paperId, userEmail)
-      .then((items) => {
-        if (!cancelled) {
-          setRecallItems(items);
-          setRecallError(null);
-        }
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) {
-          setRecallItems([]);
-          setRecallError(error instanceof Error ? error.message : "Could not load active recall prompts.");
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [paperId, studyNotes, userEmail]);
 
   return (
     <section className="space-y-6">
@@ -166,11 +135,12 @@ export function ResearchToolkit({
           <p className="mt-1 text-sm text-slate-300">Try to recall key concepts before revealing the answer.</p>
         </div>
 
-        {recallError && <p className="text-sm text-rose-300">{recallError}</p>}
         {!studyNotes ? (
           <NotesSectionSkeleton />
         ) : recallItems.length === 0 ? (
-          <p className="text-sm text-slate-300">No recall prompts available yet.</p>
+          <p className="text-sm text-slate-300">
+            Active recall is temporarily unavailable while revision and learning APIs are disabled.
+          </p>
         ) : (
           <div className="space-y-3">
             {recallItems.map((item) => {
@@ -195,70 +165,14 @@ export function ResearchToolkit({
                         <button
                           type="button"
                           className="inline-flex items-center rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-all duration-300 hover:scale-105 hover:bg-emerald-700"
-                          onClick={async () => {
-                            const responseTimeSeconds = Math.max(
-                              1,
-                              Math.round((Date.now() - (revealTimes[item.id] ?? Date.now())) / 1000)
-                            );
-                            await submitActiveRecallAttempt({
-                              userEmail,
-                              paperId: paperId ?? "",
-                              topic: item.topic,
-                              isCorrect: true,
-                            });
-                            if (paperId) {
-                              await Promise.all([
-                                updateConfusionStatus(paperId, {
-                                  user_email: userEmail,
-                                  topic: item.topic,
-                                  question: item.prompt,
-                                  is_correct: true,
-                                  response_time_seconds: responseTimeSeconds,
-                                }),
-                                updateLearningEfficiency(userId, {
-                                  topic: item.topic,
-                                  accuracy: 1,
-                                  attempts: 1,
-                                  time_spent: responseTimeSeconds,
-                                }),
-                              ]);
-                            }
-                          }}
+                          onClick={async () => undefined}
                         >
                           I got it right
                         </button>
                         <button
                           type="button"
                           className="inline-flex items-center rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition-all duration-300 hover:scale-105 hover:bg-rose-700"
-                          onClick={async () => {
-                            const responseTimeSeconds = Math.max(
-                              1,
-                              Math.round((Date.now() - (revealTimes[item.id] ?? Date.now())) / 1000)
-                            );
-                            await submitActiveRecallAttempt({
-                              userEmail,
-                              paperId: paperId ?? "",
-                              topic: item.topic,
-                              isCorrect: false,
-                            });
-                            if (paperId) {
-                              await Promise.all([
-                                updateConfusionStatus(paperId, {
-                                  user_email: userEmail,
-                                  topic: item.topic,
-                                  question: item.prompt,
-                                  is_correct: false,
-                                  response_time_seconds: responseTimeSeconds,
-                                }),
-                                updateLearningEfficiency(userId, {
-                                  topic: item.topic,
-                                  accuracy: 0,
-                                  attempts: 1,
-                                  time_spent: responseTimeSeconds,
-                                }),
-                              ]);
-                            }
-                          }}
+                          onClick={async () => undefined}
                         >
                           I got it wrong
                         </button>

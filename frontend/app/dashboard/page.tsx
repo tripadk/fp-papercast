@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { Bot, FileUp, LayoutDashboard, LogOut, Sparkles } from "lucide-react";
 import Link from "next/link";
-import { explainPaperLikeIm12, fetchContentStatus, fetchPaperDetail, fetchPaperHistory, fetchUserGoal } from "@/lib/api";
+import { explainPaperLikeIm12, fetchContentStatus, fetchPaperDetail, fetchPaperHistory } from "@/lib/api";
 import { ResearchToolkit } from "@/components/research-toolkit";
 import { UploadForm } from "@/components/upload-form";
 import { MethodologyDiagram } from "@/components/methodology-diagram";
@@ -14,7 +14,6 @@ import SummaryCard from "@/components/summary-card";
 import { PodcastAudioPlayer } from "@/components/audio-player";
 import { ChatbotPanel } from "@/components/chatbot";
 import { PaperRow } from "@/components/paper-row";
-import { toUserId } from "@/lib/user-id";
 import type { PaperShelfItem } from "@/components/paper-card";
 import type {
   LearningMode,
@@ -43,7 +42,6 @@ export default function DashboardPage() {
 
   const ready = useMemo(() => status === "authenticated" && !!session, [session, status]);
   const userEmail = session?.user?.email ?? "anonymous@local";
-  const userId = useMemo(() => toUserId(userEmail), [userEmail]);
   const recentPapers = useMemo<PaperShelfItem[]>(
     () =>
       history.map((paper) => ({
@@ -81,14 +79,6 @@ export default function DashboardPage() {
     if (!ready) return;
 
     let cancelled = false;
-    fetchUserGoal(userId)
-      .then((goalPayload) => {
-        if (!cancelled) {
-          setStudyGoal(goalPayload.goal);
-        }
-      })
-      .catch(() => undefined);
-
     setHistoryLoading(true);
     fetchPaperHistory()
       .then((items) => {
@@ -103,7 +93,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [ready, userEmail, userId, result?.paper_id]);
+  }, [ready, result?.paper_id]);
 
   useEffect(() => {
     setSimpleExplanation("");
