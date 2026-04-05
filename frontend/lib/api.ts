@@ -1,7 +1,7 @@
 import type { LearningMode, OutputLanguage, PaperHistoryItem, PodcastLength, PodcastStyle, SimplifiedExplanationResult, StudyGoal, UploadResult, UserProfile, UserProfileUpdatePayload } from "./types";
 
 const BACKEND_BASE_URL = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "").replace(/\/+$/, "");
-const PAPERS_PREFIX = "/api/v1/papers";
+const PAPERS_PREFIX = "/papers";
 const USER_PREFIX = "/api/v1/user";
 const DISABLED_API_ERROR = "This frontend API is disabled until the backend exposes a stable non-user_id-dependent route.";
 
