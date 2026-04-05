@@ -18,7 +18,13 @@ from app.routers.user import router as user_router
 from app.schemas import ChatRequest, ChatResponse, UploadResponse
 from app.services.event_ledger_service import init_event_ledger
 
-app = FastAPI(title="PaperCast API", version="0.1.0")
+app = FastAPI(
+    title="PaperCast API",
+    version="0.1.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+)
 logger = logging.getLogger(__name__)
 
 origins = [origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()]
@@ -41,6 +47,11 @@ app.include_router(events_router)
 app.include_router(learning_state_router)
 app.include_router(learning_router)
 init_event_ledger()
+
+
+@app.get("/")
+def root() -> dict[str, str]:
+    return {"message": "API is running"}
 
 
 @app.post("/upload", response_model=UploadResponse)
