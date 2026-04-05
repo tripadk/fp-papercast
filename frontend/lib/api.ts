@@ -1,13 +1,13 @@
 import type { LearningMode, OutputLanguage, PaperHistoryItem, PodcastLength, PodcastStyle, SimplifiedExplanationResult, StudyGoal, UploadResult, UserProfile, UserProfileUpdatePayload } from "./types";
 
-const BACKEND_BASE_URL = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "").replace(/\/+$/, "");
-const PAPERS_PREFIX = "/papers";
+const BASE_URL = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://fp-papercast.onrender.com").replace(/\/+$/, "");
+const PAPERS_PREFIX = "/api/v1/papers";
 const USER_PREFIX = "/api/v1/user";
 const DISABLED_API_ERROR = "This frontend API is disabled until the backend exposes a stable non-user_id-dependent route.";
 
-function backendUrl(path: string) {
+export function api(path: string) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return `${BACKEND_BASE_URL}${normalizedPath}`;
+  return `${BASE_URL}${normalizedPath}`;
 }
 
 export async function uploadPaper(
@@ -31,7 +31,7 @@ export async function uploadPaper(
     formData.append("output_language", options.outputLanguage);
     formData.append("user_email", options.userEmail || "anonymous@local");
 
-    const response = await fetch(backendUrl(`${PAPERS_PREFIX}/upload`), {
+    const response = await fetch(api(`${PAPERS_PREFIX}/upload`), {
       method: "POST",
       body: formData,
     });
@@ -54,7 +54,7 @@ export async function askPaperQuestion() {
 }
 
 export async function fetchTranscript(transcriptPath: string) {
-  const response = await fetch(backendUrl(transcriptPath));
+  const response = await fetch(api(transcriptPath));
 
   if (!response.ok) {
     throw new Error(`Transcript failed: ${await readErrorMessage(response)}`);
@@ -64,7 +64,7 @@ export async function fetchTranscript(transcriptPath: string) {
 }
 
 export async function fetchPaperHistory() {
-  const response = await fetch(backendUrl(`${PAPERS_PREFIX}/history`));
+  const response = await fetch(api(`${PAPERS_PREFIX}/history`));
   if (!response.ok) {
     throw new Error(`History failed: ${await readErrorMessage(response)}`);
   }
@@ -74,7 +74,7 @@ export async function fetchPaperHistory() {
 
 export async function fetchPaperDetail(paperId: string, userEmail = "") {
   const query = userEmail ? `?user_email=${encodeURIComponent(userEmail)}` : "";
-  const response = await fetch(backendUrl(`${PAPERS_PREFIX}/${paperId}${query}`));
+  const response = await fetch(api(`${PAPERS_PREFIX}/${paperId}${query}`));
   if (!response.ok) {
     throw new Error(`Paper load failed: ${await readErrorMessage(response)}`);
   }
@@ -82,7 +82,7 @@ export async function fetchPaperDetail(paperId: string, userEmail = "") {
 }
 
 export async function fetchContentStatus(contentId: string) {
-  const response = await fetch(backendUrl(`${PAPERS_PREFIX}/status/${encodeURIComponent(contentId)}`));
+  const response = await fetch(api(`${PAPERS_PREFIX}/status/${encodeURIComponent(contentId)}`));
   if (!response.ok) {
     throw new Error(`Status fetch failed: ${await readErrorMessage(response)}`);
   }
@@ -90,7 +90,7 @@ export async function fetchContentStatus(contentId: string) {
 }
 
 export async function explainPaperLikeIm12(paperId: string) {
-  const response = await fetch(backendUrl(`${PAPERS_PREFIX}/${paperId}/explain-like-im-12`), {
+  const response = await fetch(api(`${PAPERS_PREFIX}/${paperId}/explain-like-im-12`), {
     method: "POST",
   });
   if (!response.ok) {
@@ -113,7 +113,7 @@ export async function fetchChatHistory() {
 
 export async function fetchUserProfile(userEmail: string, name = "", profileImage = "") {
   const response = await fetch(
-    backendUrl(`${USER_PREFIX}/profile?user_email=${encodeURIComponent(userEmail)}&name=${encodeURIComponent(name)}&profile_image=${encodeURIComponent(profileImage)}`)
+    api(`${USER_PREFIX}/profile?user_email=${encodeURIComponent(userEmail)}&name=${encodeURIComponent(name)}&profile_image=${encodeURIComponent(profileImage)}`)
   );
   if (!response.ok) {
     throw new Error(`Profile load failed: ${await readErrorMessage(response)}`);
@@ -122,7 +122,7 @@ export async function fetchUserProfile(userEmail: string, name = "", profileImag
 }
 
 export async function updateUserProfile(payload: UserProfileUpdatePayload) {
-  const response = await fetch(backendUrl(`${USER_PREFIX}/profile/update`), {
+  const response = await fetch(api(`${USER_PREFIX}/profile/update`), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
