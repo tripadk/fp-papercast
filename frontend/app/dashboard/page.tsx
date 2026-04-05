@@ -14,6 +14,7 @@ import SummaryCard from "@/components/summary-card";
 import { PodcastAudioPlayer } from "@/components/audio-player";
 import { ChatbotPanel } from "@/components/chatbot";
 import { PaperRow } from "@/components/paper-row";
+import { toUserId } from "@/lib/user-id";
 import type { PaperShelfItem } from "@/components/paper-card";
 import type {
   LearningMode,
@@ -42,6 +43,7 @@ export default function DashboardPage() {
 
   const ready = useMemo(() => status === "authenticated" && !!session, [session, status]);
   const userEmail = session?.user?.email ?? "anonymous@local";
+  const userId = useMemo(() => toUserId(userEmail), [userEmail]);
   const recentPapers = useMemo<PaperShelfItem[]>(
     () =>
       history.map((paper) => ({
@@ -79,7 +81,7 @@ export default function DashboardPage() {
     if (!ready) return;
 
     let cancelled = false;
-    fetchUserGoal(userEmail)
+    fetchUserGoal(userId)
       .then((goalPayload) => {
         if (!cancelled) {
           setStudyGoal(goalPayload.goal);
@@ -88,7 +90,7 @@ export default function DashboardPage() {
       .catch(() => undefined);
 
     setHistoryLoading(true);
-    fetchPaperHistory(userEmail)
+    fetchPaperHistory()
       .then((items) => {
         if (!cancelled) setHistory(items);
       })
@@ -101,7 +103,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [ready, userEmail, result?.paper_id]);
+  }, [ready, userEmail, userId, result?.paper_id]);
 
   useEffect(() => {
     setSimpleExplanation("");

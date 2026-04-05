@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSession, signIn } from "next-auth/react";
 import { Loader2, PencilLine, Save, UserCircle2, X } from "lucide-react";
 import { fetchUserGoal, fetchUserProfile, updateUserGoal, updateUserProfile } from "@/lib/api";
+import { toUserId } from "@/lib/user-id";
 import type { StudyGoal, UserProfile } from "@/lib/types";
 
 type FormState = {
@@ -25,6 +26,7 @@ export default function ProfilePage() {
 
   const ready = useMemo(() => status === "authenticated" && !!session, [session, status]);
   const userEmail = session?.user?.email ?? "";
+  const userId = useMemo(() => toUserId(userEmail), [userEmail]);
   const sessionName = session?.user?.name ?? "";
   const sessionImage = session?.user?.image ?? "";
 
@@ -45,7 +47,7 @@ export default function ProfilePage() {
           bio: payload.bio ?? "",
           goal: defaultGoal,
         });
-        return fetchUserGoal(userEmail);
+        return fetchUserGoal(userId);
       })
       .then((goalPayload) => {
         if (!cancelled && goalPayload?.goal) {
@@ -66,7 +68,7 @@ export default function ProfilePage() {
     return () => {
       cancelled = true;
     };
-  }, [ready, userEmail, sessionName, sessionImage]);
+  }, [ready, userEmail, userId, sessionName, sessionImage]);
 
   if (status === "loading") {
     return (
@@ -145,7 +147,7 @@ export default function ProfilePage() {
                       bio: form.bio,
                       profile_image: profile?.profile_image ?? sessionImage ?? "",
                     });
-                    await updateUserGoal(userEmail, form.goal);
+                    await updateUserGoal(userId, form.goal);
                     setProfile(updated);
                     setForm({
                       name: updated.name,

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Download, Library } from "lucide-react";
 import { backendAssetUrl } from "@/lib/backend-url";
 import { fetchActiveRecall, submitActiveRecallAttempt, updateConfusionStatus, updateLearningEfficiency } from "@/lib/api";
+import { toUserId } from "@/lib/user-id";
 import { NotesSectionSkeleton } from "@/components/loading-skeletons";
 import type { ActiveRecallItem, ImportanceExtraction, StudyNotes } from "@/lib/types";
 
@@ -24,6 +25,7 @@ export function ResearchToolkit({
   paperId,
   userEmail,
 }: Props) {
+  const userId = toUserId(userEmail);
   const pdfUrl = notesDownloadUrl ? backendAssetUrl(notesDownloadUrl) : null;
   const [recallItems, setRecallItems] = useState<ActiveRecallItem[]>([]);
   const [revealedIds, setRevealedIds] = useState<Record<string, boolean>>({});
@@ -213,7 +215,7 @@ export function ResearchToolkit({
                                   is_correct: true,
                                   response_time_seconds: responseTimeSeconds,
                                 }),
-                                updateLearningEfficiency(userEmail, {
+                                updateLearningEfficiency(userId, {
                                   topic: item.topic,
                                   accuracy: 1,
                                   attempts: 1,
@@ -248,7 +250,7 @@ export function ResearchToolkit({
                                   is_correct: false,
                                   response_time_seconds: responseTimeSeconds,
                                 }),
-                                updateLearningEfficiency(userEmail, {
+                                updateLearningEfficiency(userId, {
                                   topic: item.topic,
                                   accuracy: 0,
                                   attempts: 1,

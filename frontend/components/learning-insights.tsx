@@ -10,6 +10,7 @@ import {
   fetchLearningState,
   fetchNextMode,
 } from "@/lib/api";
+import { toUserId } from "@/lib/user-id";
 import type {
   ConfusionStatusResponse,
   KnowledgeGraphResponse,
@@ -25,6 +26,7 @@ type Props = {
 };
 
 export function LearningInsights({ userEmail, paperId }: Props) {
+  const userId = toUserId(userEmail);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [learningState, setLearningState] = useState<LearningStateResponse | null>(null);
@@ -35,7 +37,7 @@ export function LearningInsights({ userEmail, paperId }: Props) {
   const [knowledgeGraph, setKnowledgeGraph] = useState<KnowledgeGraphResponse | null>(null);
 
   useEffect(() => {
-    if (!userEmail) return;
+    if (!userId) return;
     let cancelled = false;
 
     const load = async () => {
@@ -43,8 +45,8 @@ export function LearningInsights({ userEmail, paperId }: Props) {
       setError(null);
       try {
         const [statePayload, efficiencyPayload] = await Promise.all([
-          fetchLearningState(userEmail),
-          fetchLearningEfficiency(userEmail),
+          fetchLearningState(userId),
+          fetchLearningEfficiency(userId),
         ]);
         if (cancelled) return;
         setLearningState(statePayload);
@@ -62,7 +64,7 @@ export function LearningInsights({ userEmail, paperId }: Props) {
             : 300;
 
         const nextActionPayload = await fetchLearningNextAction({
-          user_id: userEmail,
+          user_id: userId,
           recent_activity: {
             recent_correct_rate: avgAccuracy,
             avg_response_time_seconds: 30,
@@ -105,7 +107,7 @@ export function LearningInsights({ userEmail, paperId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [paperId, userEmail]);
+  }, [paperId, userEmail, userId]);
 
   const weakTopics = useMemo(
     () => (learningState?.topics ?? []).filter((item) => item.priority === "high").slice(0, 6),
