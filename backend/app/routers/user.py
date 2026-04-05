@@ -15,7 +15,7 @@ from app.services.learning_efficiency_service import get_learning_efficiency_rep
 from app.services.profile_service import get_or_create_profile, get_user_goal, update_profile, update_user_goal
 from app.store import CONFUSION_STORE, LEARNING_STORE
 
-router = APIRouter(prefix="/api/v1/user", tags=["user"])
+router = APIRouter(prefix="/user", tags=["user"])
 
 
 @router.get("/profile", response_model=UserProfileResponse)
