@@ -63,8 +63,8 @@ export async function fetchTranscript(transcriptPath: string) {
   return response.text();
 }
 
-export async function fetchPaperHistory() {
-  const response = await fetch(api(`${PAPERS_PREFIX}/history`));
+export async function fetchPaperHistory(userEmail: string) {
+  const response = await fetch(api(`${PAPERS_PREFIX}/history?user_email=${encodeURIComponent(userEmail)}`));
   if (!response.ok) {
     throw new Error(`History failed: ${await readErrorMessage(response)}`);
   }

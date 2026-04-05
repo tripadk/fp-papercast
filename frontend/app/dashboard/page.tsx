@@ -80,7 +80,7 @@ export default function DashboardPage() {
 
     let cancelled = false;
     setHistoryLoading(true);
-    fetchPaperHistory()
+    fetchPaperHistory(userEmail)
       .then((items) => {
         if (!cancelled) setHistory(items);
       })
