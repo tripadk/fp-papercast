@@ -27,6 +27,7 @@ import type {
 
 const BACKEND_BASE_URL = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "").replace(/\/+$/, "");
 const PAPERS_PREFIX = "/api/v1/papers";
+const USER_PREFIX = "/api/v1/user";
 const CHAT_PREFIX = "/api/v1/chat";
 const REVISION_PREFIX = "/api/v1/revision";
 
@@ -179,7 +180,7 @@ export async function fetchChatHistory(paperId: string) {
 
 export async function fetchUserProfile(userEmail: string, name = "", profileImage = "") {
   const response = await fetch(
-    backendUrl(`/user/profile?user_email=${encodeURIComponent(userEmail)}&name=${encodeURIComponent(name)}&profile_image=${encodeURIComponent(profileImage)}`)
+    backendUrl(`${USER_PREFIX}/profile?user_email=${encodeURIComponent(userEmail)}&name=${encodeURIComponent(name)}&profile_image=${encodeURIComponent(profileImage)}`)
   );
   if (!response.ok) {
     throw new Error(`Profile load failed: ${await readErrorMessage(response)}`);
@@ -188,7 +189,7 @@ export async function fetchUserProfile(userEmail: string, name = "", profileImag
 }
 
 export async function updateUserProfile(payload: UserProfileUpdatePayload) {
-  const response = await fetch(backendUrl("/user/profile/update"), {
+  const response = await fetch(backendUrl(`${USER_PREFIX}/profile/update`), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -202,7 +203,7 @@ export async function updateUserProfile(payload: UserProfileUpdatePayload) {
 }
 
 export async function fetchUserGoal(userId: string) {
-  const response = await fetch(backendUrl(`/user/${encodeURIComponent(userId)}/goal`));
+  const response = await fetch(backendUrl(`${USER_PREFIX}/${encodeURIComponent(userId)}/goal`));
   if (!response.ok) {
     throw new Error(`Goal load failed: ${await readErrorMessage(response)}`);
   }
@@ -210,7 +211,7 @@ export async function fetchUserGoal(userId: string) {
 }
 
 export async function updateUserGoal(userId: string, goal: StudyGoal) {
-  const response = await fetch(backendUrl(`/user/${encodeURIComponent(userId)}/goal`), {
+  const response = await fetch(backendUrl(`${USER_PREFIX}/${encodeURIComponent(userId)}/goal`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ goal }),
@@ -264,7 +265,7 @@ export async function updateConfusionStatus(contentId: string, payload: Confusio
 }
 
 export async function fetchLearningEfficiency(userId: string) {
-  const response = await fetch(backendUrl(`/user/${encodeURIComponent(userId)}/learning-efficiency`));
+  const response = await fetch(backendUrl(`${USER_PREFIX}/${encodeURIComponent(userId)}/learning-efficiency`));
   if (!response.ok) {
     throw new Error(`Learning efficiency fetch failed: ${await readErrorMessage(response)}`);
   }
@@ -272,7 +273,7 @@ export async function fetchLearningEfficiency(userId: string) {
 }
 
 export async function updateLearningEfficiency(userId: string, payload: LearningEfficiencyUpdatePayload) {
-  const response = await fetch(backendUrl(`/user/${encodeURIComponent(userId)}/learning-efficiency`), {
+  const response = await fetch(backendUrl(`${USER_PREFIX}/${encodeURIComponent(userId)}/learning-efficiency`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
