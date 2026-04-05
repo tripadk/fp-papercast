@@ -26,6 +26,9 @@ import type {
 } from "./types";
 
 const BACKEND_BASE_URL = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "").replace(/\/+$/, "");
+const PAPERS_PREFIX = "/api/v1/papers";
+const CHAT_PREFIX = "/api/v1/chat";
+const REVISION_PREFIX = "/api/v1/revision";
 
 function backendUrl(path: string) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
@@ -53,7 +56,7 @@ export async function uploadPaper(
     formData.append("output_language", options.outputLanguage);
     formData.append("user_email", options.userEmail || "anonymous@local");
 
-    const response = await fetch(backendUrl("/papers/upload"), {
+    const response = await fetch(backendUrl(`${PAPERS_PREFIX}/upload`), {
       method: "POST",
       body: formData,
     });
@@ -72,7 +75,7 @@ export async function uploadPaper(
 }
 
 export async function askPaperQuestion(paperId: string, question: string, history: ChatMessage[]) {
-  const response = await fetch(backendUrl("/chat/ask"), {
+  const response = await fetch(backendUrl(`${CHAT_PREFIX}/ask`), {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -98,7 +101,7 @@ export async function fetchTranscript(transcriptPath: string) {
 }
 
 export async function fetchPaperHistory(userEmail: string) {
-  const response = await fetch(backendUrl(`/papers/history?user_email=${encodeURIComponent(userEmail)}`));
+  const response = await fetch(backendUrl(`${PAPERS_PREFIX}/history?user_email=${encodeURIComponent(userEmail)}`));
   if (!response.ok) {
     throw new Error(`History failed: ${await readErrorMessage(response)}`);
   }
@@ -108,7 +111,7 @@ export async function fetchPaperHistory(userEmail: string) {
 
 export async function fetchPaperDetail(paperId: string, userEmail = "") {
   const query = userEmail ? `?user_email=${encodeURIComponent(userEmail)}` : "";
-  const response = await fetch(backendUrl(`/papers/${paperId}${query}`));
+  const response = await fetch(backendUrl(`${PAPERS_PREFIX}/${paperId}${query}`));
   if (!response.ok) {
     throw new Error(`Paper load failed: ${await readErrorMessage(response)}`);
   }
@@ -116,7 +119,7 @@ export async function fetchPaperDetail(paperId: string, userEmail = "") {
 }
 
 export async function fetchContentStatus(contentId: string) {
-  const response = await fetch(backendUrl(`/papers/status/${encodeURIComponent(contentId)}`));
+  const response = await fetch(backendUrl(`${PAPERS_PREFIX}/status/${encodeURIComponent(contentId)}`));
   if (!response.ok) {
     throw new Error(`Status fetch failed: ${await readErrorMessage(response)}`);
   }
@@ -124,7 +127,7 @@ export async function fetchContentStatus(contentId: string) {
 }
 
 export async function explainPaperLikeIm12(paperId: string) {
-  const response = await fetch(backendUrl(`/papers/${paperId}/explain-like-im-12`), {
+  const response = await fetch(backendUrl(`${PAPERS_PREFIX}/${paperId}/explain-like-im-12`), {
     method: "POST",
   });
   if (!response.ok) {
@@ -135,7 +138,7 @@ export async function explainPaperLikeIm12(paperId: string) {
 
 export async function fetchActiveRecall(paperId: string, userEmail: string) {
   const response = await fetch(
-    backendUrl(`/revision/active-recall/paper/${encodeURIComponent(paperId)}?user_email=${encodeURIComponent(userEmail)}`)
+    backendUrl(`${REVISION_PREFIX}/active-recall/paper/${encodeURIComponent(paperId)}?user_email=${encodeURIComponent(userEmail)}`)
   );
   if (!response.ok) {
     throw new Error(`Active recall fetch failed: ${await readErrorMessage(response)}`);
@@ -150,7 +153,7 @@ export async function submitActiveRecallAttempt(params: {
   topic: string;
   isCorrect: boolean;
 }) {
-  const response = await fetch(backendUrl("/revision/active-recall/attempt"), {
+  const response = await fetch(backendUrl(`${REVISION_PREFIX}/active-recall/attempt`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -166,7 +169,7 @@ export async function submitActiveRecallAttempt(params: {
 }
 
 export async function fetchChatHistory(paperId: string) {
-  const response = await fetch(backendUrl(`/chat/history/${paperId}`));
+  const response = await fetch(backendUrl(`${CHAT_PREFIX}/history/${paperId}`));
   if (!response.ok) {
     throw new Error(`Chat history failed: ${await readErrorMessage(response)}`);
   }
@@ -219,7 +222,7 @@ export async function updateUserGoal(userId: string, goal: StudyGoal) {
 }
 
 export async function fetchKnowledgeGraph(contentId: string) {
-  const response = await fetch(backendUrl(`/papers/${encodeURIComponent(contentId)}/knowledge-graph`));
+  const response = await fetch(backendUrl(`${PAPERS_PREFIX}/${encodeURIComponent(contentId)}/knowledge-graph`));
   if (!response.ok) {
     throw new Error(`Knowledge graph fetch failed: ${await readErrorMessage(response)}`);
   }
