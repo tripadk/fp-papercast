@@ -26,20 +26,14 @@ app = FastAPI(
     redoc_url="/redoc",
     openapi_url="/openapi.json",
 )
-logger = logging.getLogger(__name__)
-
-origins = [origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()]
-if "http://localhost:3000" not in origins:
-    origins.append("http://localhost:3000")
-if "https://fp-papercast.vercel.app" not in origins:
-    origins.append("https://fp-papercast.vercel.app")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+logger = logging.getLogger(__name__)
 
 app.include_router(papers.router)
 app.include_router(user.router)
