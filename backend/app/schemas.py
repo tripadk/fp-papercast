@@ -125,6 +125,27 @@ class ChatHistoryResponse(BaseModel):
     messages: list[ChatHistoryItem]
 
 
+class LearningInsightItem(BaseModel):
+    concept_id: str = ""
+    topic: str
+    recommendation: str
+    priority: str = "medium"
+
+
+class LearningInsightsResponse(BaseModel):
+    user_email: str
+    progress: dict[str, float | int]
+    weak_topics: list[str] = Field(default_factory=list)
+    recommendations: list[LearningInsightItem] = Field(default_factory=list)
+
+
+class PaperRecommendationsResponse(BaseModel):
+    source: str
+    paper_id: str = ""
+    user_email: str = ""
+    recommendations: list[RelatedPaper] = Field(default_factory=list)
+
+
 class UserProfileResponse(BaseModel):
     user_email: str
     name: str

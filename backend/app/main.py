@@ -2,7 +2,7 @@ from typing import Literal
 import logging
 import os
 
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -14,7 +14,7 @@ from app.routers.content import router as content_router
 from app.routers.events import router as events_router
 from app.routers.learning import router as learning_router
 from app.routers.learning_state import router as learning_state_router
-from app.routers.papers import _build_upload_response, _get_paper_record, _process_upload
+from app.routers.papers import _build_upload_response, _get_paper_record, _process_upload, create_lightweight_upload_response
 from app.routers.papers import router as papers_router
 from app.routers.revision import router as revision_router
 from app.routers.user import router as user_router
@@ -55,6 +55,7 @@ app.include_router(user.router)
 app.include_router(chat.router)
 app.include_router(revision.router)
 app.include_router(learning_state.router)
+app.include_router(learning_state.v1_router)
 app.include_router(content_router)
 app.include_router(events_router)
 app.include_router(learning_router)
@@ -75,6 +76,7 @@ async def upload(
     learning_mode: Literal["beginner", "exam_mode", "deep_learning", "quick_revision"] = Form("beginner"),
     output_language: Literal["english", "hindi"] = Form("english"),
     user_email: str = Form("anonymous@local"),
+    enable_heavy: bool = Query(False),
 ) -> UploadResponse:
     logger.info("Upload request received for user=%s filename=%s", user_email, file.filename)
     print(
@@ -83,6 +85,16 @@ async def upload(
         f"study_goal={study_goal} learning_mode={learning_mode} output_language={output_language}"
     )
     try:
+        if not enable_heavy:
+            return create_lightweight_upload_response(
+                file_name=file.filename or "Uploaded PDF",
+                user_email=user_email,
+                podcast_length=podcast_length,
+                podcast_style=podcast_style,
+                study_goal=study_goal,
+                learning_mode=learning_mode,
+                output_language=output_language,
+            )
         return await _process_upload(
             file, podcast_length, podcast_style, study_goal, learning_mode, output_language, user_email
         )
@@ -106,12 +118,23 @@ async def upload_paper_root(
     learning_mode: Literal["beginner", "exam_mode", "deep_learning", "quick_revision"] = Form("beginner"),
     output_language: Literal["english", "hindi"] = Form("english"),
     user_email: str = Form("anonymous@local"),
+    enable_heavy: bool = Query(False),
 ) -> UploadResponse:
     print(
         f"[route:/upload-paper] request received user_email={user_email} filename={file.filename} "
         f"content_type={file.content_type}"
     )
     try:
+        if not enable_heavy:
+            return create_lightweight_upload_response(
+                file_name=file.filename or "Uploaded PDF",
+                user_email=user_email,
+                podcast_length=podcast_length,
+                podcast_style=podcast_style,
+                study_goal=study_goal,
+                learning_mode=learning_mode,
+                output_language=output_language,
+            )
         return await _process_upload(
             file, podcast_length, podcast_style, study_goal, learning_mode, output_language, user_email
         )
@@ -135,12 +158,23 @@ async def upload_paper_alias(
     learning_mode: Literal["beginner", "exam_mode", "deep_learning", "quick_revision"] = Form("beginner"),
     output_language: Literal["english", "hindi"] = Form("english"),
     user_email: str = Form("anonymous@local"),
+    enable_heavy: bool = Query(False),
 ) -> UploadResponse:
     print(
         f"[route:/papers/upload] request received user_email={user_email} filename={file.filename} "
         f"content_type={file.content_type}"
     )
     try:
+        if not enable_heavy:
+            return create_lightweight_upload_response(
+                file_name=file.filename or "Uploaded PDF",
+                user_email=user_email,
+                podcast_length=podcast_length,
+                podcast_style=podcast_style,
+                study_goal=study_goal,
+                learning_mode=learning_mode,
+                output_language=output_language,
+            )
         return await _process_upload(
             file, podcast_length, podcast_style, study_goal, learning_mode, output_language, user_email
         )
@@ -156,9 +190,11 @@ async def upload_paper_alias(
 
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat_root(payload: ChatRequest) -> ChatResponse:
+async def chat_root(payload: ChatRequest, enable_heavy: bool = Query(False)) -> ChatResponse:
     print(f"[route:/chat] request received paper_id={payload.paper_id} history_items={len(payload.history)}")
     try:
+        if not enable_heavy:
+            return ChatResponse(answer="Heavy chat is disabled by default. Re-submit with ?enable_heavy=true to run the LLM.")
         return await _answer_question(payload)
     except Exception as exc:
         logger.exception("Unhandled error in /chat")

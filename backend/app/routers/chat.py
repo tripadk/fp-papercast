@@ -1,4 +1,7 @@
-from fastapi import APIRouter, HTTPException
+import logging
+
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import JSONResponse
 
 from datetime import UTC, datetime
 import time
@@ -16,6 +19,7 @@ from app.services.translation_service import translate_text
 from app.store import CHAT_HISTORY, CONFUSION_STORE, LEARNING_STORE, PAPER_STORE, save_state
 
 router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
+logger = logging.getLogger(__name__)
 
 
 async def _answer_question(payload: ChatRequest) -> ChatResponse:
@@ -65,8 +69,41 @@ async def _answer_question(payload: ChatRequest) -> ChatResponse:
 
 
 @router.post("/ask", response_model=ChatResponse)
-async def ask_question(payload: ChatRequest) -> ChatResponse:
-    return await _answer_question(payload)
+async def ask_question(payload: ChatRequest, enable_heavy: bool = Query(False)) -> ChatResponse:
+    logger.info("Chat /ask request received paper_id=%s question_length=%s", payload.paper_id, len(payload.question))
+    print(f"[route:/api/v1/chat/ask] request received paper_id={payload.paper_id}")
+    try:
+        if not enable_heavy:
+            return ChatResponse(answer="Heavy chat is disabled by default. Re-submit with ?enable_heavy=true to run the LLM.")
+        return await _answer_question(payload)
+    except Exception as exc:
+        logger.exception("Unhandled error in /api/v1/chat/ask")
+        print(f"[route:/api/v1/chat/ask][error] {type(exc).__name__}: {exc}")
+        status_code = getattr(exc, "status_code", 500)
+        detail = getattr(exc, "detail", str(exc))
+        return JSONResponse(
+            status_code=status_code,
+            content={"error": "chat_failed", "detail": detail, "route": "/api/v1/chat/ask"},
+        )
+
+
+@router.post("", response_model=ChatResponse)
+async def ask_question_root(payload: ChatRequest, enable_heavy: bool = Query(False)) -> ChatResponse:
+    logger.info("Chat root request received paper_id=%s question_length=%s", payload.paper_id, len(payload.question))
+    print(f"[route:/api/v1/chat] request received paper_id={payload.paper_id}")
+    try:
+        if not enable_heavy:
+            return ChatResponse(answer="Heavy chat is disabled by default. Re-submit with ?enable_heavy=true to run the LLM.")
+        return await _answer_question(payload)
+    except Exception as exc:
+        logger.exception("Unhandled error in /api/v1/chat")
+        print(f"[route:/api/v1/chat][error] {type(exc).__name__}: {exc}")
+        status_code = getattr(exc, "status_code", 500)
+        detail = getattr(exc, "detail", str(exc))
+        return JSONResponse(
+            status_code=status_code,
+            content={"error": "chat_failed", "detail": detail, "route": "/api/v1/chat"},
+        )
 
 
 @router.get("/history/{paper_id}", response_model=ChatHistoryResponse)
