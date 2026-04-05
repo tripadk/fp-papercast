@@ -26,7 +26,6 @@ import type {
 } from "./types";
 
 const BACKEND_BASE_URL = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "").replace(/\/+$/, "");
-const API_V1_PREFIX = "/api/v1";
 
 function backendUrl(path: string) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
@@ -54,7 +53,7 @@ export async function uploadPaper(
     formData.append("output_language", options.outputLanguage);
     formData.append("user_email", options.userEmail || "anonymous@local");
 
-    const response = await fetch(backendUrl(`${API_V1_PREFIX}/papers/upload`), {
+    const response = await fetch(backendUrl("/papers/upload"), {
       method: "POST",
       body: formData,
     });
@@ -73,7 +72,7 @@ export async function uploadPaper(
 }
 
 export async function askPaperQuestion(paperId: string, question: string, history: ChatMessage[]) {
-  const response = await fetch(backendUrl(`${API_V1_PREFIX}/chat/ask`), {
+  const response = await fetch(backendUrl("/chat/ask"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -99,7 +98,7 @@ export async function fetchTranscript(transcriptPath: string) {
 }
 
 export async function fetchPaperHistory(userEmail: string) {
-  const response = await fetch(backendUrl(`${API_V1_PREFIX}/papers/history?user_email=${encodeURIComponent(userEmail)}`));
+  const response = await fetch(backendUrl(`/papers/history?user_email=${encodeURIComponent(userEmail)}`));
   if (!response.ok) {
     throw new Error(`History failed: ${await readErrorMessage(response)}`);
   }
@@ -109,7 +108,7 @@ export async function fetchPaperHistory(userEmail: string) {
 
 export async function fetchPaperDetail(paperId: string, userEmail = "") {
   const query = userEmail ? `?user_email=${encodeURIComponent(userEmail)}` : "";
-  const response = await fetch(backendUrl(`${API_V1_PREFIX}/papers/${paperId}${query}`));
+  const response = await fetch(backendUrl(`/papers/${paperId}${query}`));
   if (!response.ok) {
     throw new Error(`Paper load failed: ${await readErrorMessage(response)}`);
   }
@@ -117,7 +116,7 @@ export async function fetchPaperDetail(paperId: string, userEmail = "") {
 }
 
 export async function fetchContentStatus(contentId: string) {
-  const response = await fetch(backendUrl(`${API_V1_PREFIX}/papers/status/${encodeURIComponent(contentId)}`));
+  const response = await fetch(backendUrl(`/papers/status/${encodeURIComponent(contentId)}`));
   if (!response.ok) {
     throw new Error(`Status fetch failed: ${await readErrorMessage(response)}`);
   }
@@ -125,7 +124,7 @@ export async function fetchContentStatus(contentId: string) {
 }
 
 export async function explainPaperLikeIm12(paperId: string) {
-  const response = await fetch(backendUrl(`${API_V1_PREFIX}/papers/${paperId}/explain-like-im-12`), {
+  const response = await fetch(backendUrl(`/papers/${paperId}/explain-like-im-12`), {
     method: "POST",
   });
   if (!response.ok) {
@@ -136,7 +135,7 @@ export async function explainPaperLikeIm12(paperId: string) {
 
 export async function fetchActiveRecall(paperId: string, userEmail: string) {
   const response = await fetch(
-    backendUrl(`${API_V1_PREFIX}/revision/active-recall/paper/${encodeURIComponent(paperId)}?user_email=${encodeURIComponent(userEmail)}`)
+    backendUrl(`/revision/active-recall/paper/${encodeURIComponent(paperId)}?user_email=${encodeURIComponent(userEmail)}`)
   );
   if (!response.ok) {
     throw new Error(`Active recall fetch failed: ${await readErrorMessage(response)}`);
@@ -151,7 +150,7 @@ export async function submitActiveRecallAttempt(params: {
   topic: string;
   isCorrect: boolean;
 }) {
-  const response = await fetch(backendUrl(`${API_V1_PREFIX}/revision/active-recall/attempt`), {
+  const response = await fetch(backendUrl("/revision/active-recall/attempt"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -167,7 +166,7 @@ export async function submitActiveRecallAttempt(params: {
 }
 
 export async function fetchChatHistory(paperId: string) {
-  const response = await fetch(backendUrl(`${API_V1_PREFIX}/chat/history/${paperId}`));
+  const response = await fetch(backendUrl(`/chat/history/${paperId}`));
   if (!response.ok) {
     throw new Error(`Chat history failed: ${await readErrorMessage(response)}`);
   }
@@ -177,7 +176,7 @@ export async function fetchChatHistory(paperId: string) {
 
 export async function fetchUserProfile(userEmail: string, name = "", profileImage = "") {
   const response = await fetch(
-    backendUrl(`${API_V1_PREFIX}/user/profile?user_email=${encodeURIComponent(userEmail)}&name=${encodeURIComponent(name)}&profile_image=${encodeURIComponent(profileImage)}`)
+    backendUrl(`/user/profile?user_email=${encodeURIComponent(userEmail)}&name=${encodeURIComponent(name)}&profile_image=${encodeURIComponent(profileImage)}`)
   );
   if (!response.ok) {
     throw new Error(`Profile load failed: ${await readErrorMessage(response)}`);
@@ -186,7 +185,7 @@ export async function fetchUserProfile(userEmail: string, name = "", profileImag
 }
 
 export async function updateUserProfile(payload: UserProfileUpdatePayload) {
-  const response = await fetch(backendUrl(`${API_V1_PREFIX}/user/profile/update`), {
+  const response = await fetch(backendUrl("/user/profile/update"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -200,7 +199,7 @@ export async function updateUserProfile(payload: UserProfileUpdatePayload) {
 }
 
 export async function fetchUserGoal(userId: string) {
-  const response = await fetch(backendUrl(`${API_V1_PREFIX}/user/${encodeURIComponent(userId)}/goal`));
+  const response = await fetch(backendUrl(`/user/${encodeURIComponent(userId)}/goal`));
   if (!response.ok) {
     throw new Error(`Goal load failed: ${await readErrorMessage(response)}`);
   }
@@ -208,7 +207,7 @@ export async function fetchUserGoal(userId: string) {
 }
 
 export async function updateUserGoal(userId: string, goal: StudyGoal) {
-  const response = await fetch(backendUrl(`${API_V1_PREFIX}/user/${encodeURIComponent(userId)}/goal`), {
+  const response = await fetch(backendUrl(`/user/${encodeURIComponent(userId)}/goal`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ goal }),
@@ -220,7 +219,7 @@ export async function updateUserGoal(userId: string, goal: StudyGoal) {
 }
 
 export async function fetchKnowledgeGraph(contentId: string) {
-  const response = await fetch(backendUrl(`${API_V1_PREFIX}/papers/${encodeURIComponent(contentId)}/knowledge-graph`));
+  const response = await fetch(backendUrl(`/papers/${encodeURIComponent(contentId)}/knowledge-graph`));
   if (!response.ok) {
     throw new Error(`Knowledge graph fetch failed: ${await readErrorMessage(response)}`);
   }
@@ -228,7 +227,7 @@ export async function fetchKnowledgeGraph(contentId: string) {
 }
 
 export async function fetchNextMode(contentId: string, payload: LearningInteractionRequest) {
-  const response = await fetch(backendUrl(`${API_V1_PREFIX}/content/${encodeURIComponent(contentId)}/next-mode`), {
+  const response = await fetch(backendUrl(`/content/${encodeURIComponent(contentId)}/next-mode`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -241,7 +240,7 @@ export async function fetchNextMode(contentId: string, payload: LearningInteract
 
 export async function fetchConfusionStatus(contentId: string, userEmail: string) {
   const response = await fetch(
-    backendUrl(`${API_V1_PREFIX}/content/${encodeURIComponent(contentId)}/confusion-status?user_email=${encodeURIComponent(userEmail)}`)
+    backendUrl(`/content/${encodeURIComponent(contentId)}/confusion-status?user_email=${encodeURIComponent(userEmail)}`)
   );
   if (!response.ok) {
     throw new Error(`Confusion status fetch failed: ${await readErrorMessage(response)}`);
@@ -250,7 +249,7 @@ export async function fetchConfusionStatus(contentId: string, userEmail: string)
 }
 
 export async function updateConfusionStatus(contentId: string, payload: ConfusionStatusUpdatePayload) {
-  const response = await fetch(backendUrl(`${API_V1_PREFIX}/content/${encodeURIComponent(contentId)}/confusion-status`), {
+  const response = await fetch(backendUrl(`/content/${encodeURIComponent(contentId)}/confusion-status`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -262,7 +261,7 @@ export async function updateConfusionStatus(contentId: string, payload: Confusio
 }
 
 export async function fetchLearningEfficiency(userId: string) {
-  const response = await fetch(backendUrl(`${API_V1_PREFIX}/user/${encodeURIComponent(userId)}/learning-efficiency`));
+  const response = await fetch(backendUrl(`/user/${encodeURIComponent(userId)}/learning-efficiency`));
   if (!response.ok) {
     throw new Error(`Learning efficiency fetch failed: ${await readErrorMessage(response)}`);
   }
@@ -270,7 +269,7 @@ export async function fetchLearningEfficiency(userId: string) {
 }
 
 export async function updateLearningEfficiency(userId: string, payload: LearningEfficiencyUpdatePayload) {
-  const response = await fetch(backendUrl(`${API_V1_PREFIX}/user/${encodeURIComponent(userId)}/learning-efficiency`), {
+  const response = await fetch(backendUrl(`/user/${encodeURIComponent(userId)}/learning-efficiency`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -282,7 +281,7 @@ export async function updateLearningEfficiency(userId: string, payload: Learning
 }
 
 export async function fetchLearningState(userId: string) {
-  const response = await fetch(backendUrl(`${API_V1_PREFIX}/learning-state/${encodeURIComponent(userId)}`));
+  const response = await fetch(backendUrl(`/learning-state/${encodeURIComponent(userId)}`));
   if (!response.ok) {
     throw new Error(`Learning state fetch failed: ${await readErrorMessage(response)}`);
   }
@@ -290,7 +289,7 @@ export async function fetchLearningState(userId: string) {
 }
 
 export async function fetchLearningNextAction(payload: LearningNextActionRequest) {
-  const response = await fetch(backendUrl(`${API_V1_PREFIX}/learning/next-action`), {
+  const response = await fetch(backendUrl("/learning/next-action"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
