@@ -1,6 +1,9 @@
-const API_PREFIX = "/api";
+const BACKEND_BASE_URL = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "").replace(/\/+$/, "");
 
 function normalizePath(path: string): string {
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
   if (!path.startsWith("/")) {
     return `/${path}`;
   }
@@ -8,10 +11,10 @@ function normalizePath(path: string): string {
 }
 
 export function backendApiUrl(path: string): string {
-  return normalizePath(path);
+  const normalizedPath = normalizePath(path);
+  return normalizedPath.startsWith("http") ? normalizedPath : `${BACKEND_BASE_URL}${normalizedPath}`;
 }
 
 export function backendAssetUrl(path: string): string {
-  const normalizedPath = normalizePath(path);
-  return normalizedPath.startsWith(API_PREFIX) ? normalizedPath : `${API_PREFIX}${normalizedPath}`;
+  return backendApiUrl(path);
 }
