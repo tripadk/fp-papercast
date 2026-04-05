@@ -14,7 +14,7 @@ from typing import Any, Literal
 from urllib.request import Request, urlopen
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from app.core.config import settings
 from app.schemas import IngestContentResponse, PaperHistoryResponse, SimplifiedExplanationResponse, UnifiedContent, UploadResponse
@@ -688,9 +688,29 @@ async def upload_paper(
     output_language: Literal["english", "hindi"] = Form("english"),
     user_email: str = Form("anonymous@local"),
 ) -> UploadResponse:
-    return await _process_upload(
-        file, podcast_length, podcast_style, study_goal, learning_mode, output_language, user_email
+    logger.info(
+        "Paper upload route hit user_email=%s filename=%s content_type=%s",
+        user_email,
+        file.filename,
+        file.content_type,
     )
+    print(
+        f"[route:/api/v1/papers/upload] request received user_email={user_email} filename={file.filename} "
+        f"content_type={file.content_type}"
+    )
+    try:
+        return await _process_upload(
+            file, podcast_length, podcast_style, study_goal, learning_mode, output_language, user_email
+        )
+    except Exception as exc:
+        logger.exception("Unhandled error in /api/v1/papers/upload")
+        print(f"[route:/api/v1/papers/upload][error] {type(exc).__name__}: {exc}")
+        status_code = getattr(exc, "status_code", 500)
+        detail = getattr(exc, "detail", str(exc))
+        return JSONResponse(
+            status_code=status_code,
+            content={"error": "paper_upload_failed", "detail": detail, "route": "/api/v1/papers/upload"},
+        )
 
 
 @router.post("/ingest", response_model=IngestContentResponse)
@@ -754,31 +774,69 @@ async def ingest_content(
 
 @router.get("/history", response_model=PaperHistoryResponse)
 async def get_history(user_email: str = Query(...)) -> PaperHistoryResponse:
-    papers = [item for item in PAPER_HISTORY if item.get("user_email") == user_email]
-    papers.sort(key=lambda item: item.get("upload_timestamp", ""), reverse=True)
-    return PaperHistoryResponse(papers=papers)
+    logger.info("Paper history requested user_email=%s", user_email)
+    print(f"[route:/api/v1/papers/history] request received user_email={user_email}")
+    try:
+        papers = [item for item in PAPER_HISTORY if item.get("user_email") == user_email]
+        papers.sort(key=lambda item: item.get("upload_timestamp", ""), reverse=True)
+        return PaperHistoryResponse(papers=papers)
+    except Exception as exc:
+        logger.exception("Unhandled error in /api/v1/papers/history for user_email=%s", user_email)
+        print(f"[route:/api/v1/papers/history][error] {type(exc).__name__}: {exc}")
+        status_code = getattr(exc, "status_code", 500)
+        detail = getattr(exc, "detail", str(exc))
+        return JSONResponse(
+            status_code=status_code,
+            content={"error": "paper_history_failed", "detail": detail, "route": "/api/v1/papers/history"},
+        )
 
 
 @router.get("/{paper_id}", response_model=UploadResponse)
 async def get_paper_detail(paper_id: str, user_email: str = Query("")) -> UploadResponse:
-    paper = _get_paper_record(paper_id)
-    effective_user_email = user_email.strip() or str(paper.get("user_email", "")).strip()
-    if effective_user_email:
-        record_topic_view(
-            store=LEARNING_STORE,
-            user_email=effective_user_email,
-            topic=str(paper.get("title", "paper detail view")).strip() or "paper detail view",
-            paper_id=paper_id,
-            confidence=4,
-            source="content_view",
+    print(f"[route:/api/v1/papers/{{paper_id}}] request received paper_id={paper_id} user_email={user_email}")
+    try:
+        paper = _get_paper_record(paper_id)
+        effective_user_email = user_email.strip() or str(paper.get("user_email", "")).strip()
+        if effective_user_email:
+            record_topic_view(
+                store=LEARNING_STORE,
+                user_email=effective_user_email,
+                topic=str(paper.get("title", "paper detail view")).strip() or "paper detail view",
+                paper_id=paper_id,
+                confidence=4,
+                source="content_view",
+            )
+        return _build_upload_response(paper)
+    except Exception as exc:
+        logger.exception("Unhandled error in /api/v1/papers/%s", paper_id)
+        print(f"[route:/api/v1/papers/{{paper_id}}][error] {type(exc).__name__}: {exc}")
+        status_code = getattr(exc, "status_code", 500)
+        detail = getattr(exc, "detail", str(exc))
+        return JSONResponse(
+            status_code=status_code,
+            content={"error": "paper_detail_failed", "detail": detail, "route": f"/api/v1/papers/{paper_id}"},
         )
-    return _build_upload_response(paper)
 
 
 @router.get("/status/{content_id}", response_model=UploadResponse)
 async def get_processing_status(content_id: str) -> UploadResponse:
-    paper = _get_paper_record(content_id)
-    return _build_upload_response(paper)
+    print(f"[route:/api/v1/papers/status/{{content_id}}] request received content_id={content_id}")
+    try:
+        paper = _get_paper_record(content_id)
+        return _build_upload_response(paper)
+    except Exception as exc:
+        logger.exception("Unhandled error in /api/v1/papers/status/%s", content_id)
+        print(f"[route:/api/v1/papers/status/{{content_id}}][error] {type(exc).__name__}: {exc}")
+        status_code = getattr(exc, "status_code", 500)
+        detail = getattr(exc, "detail", str(exc))
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "error": "paper_status_failed",
+                "detail": detail,
+                "route": f"/api/v1/papers/status/{content_id}",
+            },
+        )
 
 
 @router.get("/{content_id}/knowledge-graph", response_model=KnowledgeGraphResponse)
