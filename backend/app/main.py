@@ -5,6 +5,7 @@ from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+from app.routers import chat, learning_state, papers, revision, user
 from app.routers.chat import _answer_question
 from app.routers.chat import router as chat_router
 from app.routers.content import router as content_router
@@ -38,13 +39,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(papers_router)
-app.include_router(chat_router)
-app.include_router(user_router)
-app.include_router(revision_router)
+app.include_router(papers.router)
+app.include_router(user.router)
+app.include_router(chat.router)
+app.include_router(revision.router)
+app.include_router(learning_state.router)
 app.include_router(content_router)
 app.include_router(events_router)
-app.include_router(learning_state_router)
 app.include_router(learning_router)
 init_event_ledger()
 
