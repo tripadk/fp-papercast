@@ -1,0 +1,43 @@
+# Environment
+.env
+.env.*
+*.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+backend/.venv/
+
+# Node
+node_modules/
+frontend/node_modules/
+.next/
+frontend/.next/
+*.tsbuildinfo
+
+# Data / storage
+backend/backend/data/
+backend/data/
+storage/
+uploads/
+audio/
+
+# Media
+*.mp3
+*.wav
+
+# Cache
+*.json
+
+# OS / IDE
+.vscode/
+.idea/
+.DS_Store
+
+# Keep source manifests tracked
+!frontend/package.json
+!frontend/package-lock.json
+!frontend/tsconfig.json
+!frontend/next.config.mjs
+!backend/requirements.txt
