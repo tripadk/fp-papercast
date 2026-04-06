@@ -114,6 +114,15 @@ class ChatResponse(BaseModel):
     answer: str
 
 
+class PodcastRequest(BaseModel):
+    paper_id: str = ""
+    paper_content: str = ""
+
+
+class PodcastResponse(BaseModel):
+    script: str
+
+
 class ChatHistoryItem(BaseModel):
     paper_id: str
     user_message: str

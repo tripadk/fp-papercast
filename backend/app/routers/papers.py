@@ -17,11 +17,12 @@ from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
 from app.core.config import settings
-from app.schemas import IngestContentResponse, PaperHistoryResponse, PaperRecommendationsResponse, SimplifiedExplanationResponse, UnifiedContent, UploadResponse
+from app.schemas import IngestContentResponse, PaperHistoryResponse, PaperRecommendationsResponse, PodcastRequest, PodcastResponse, SimplifiedExplanationResponse, UnifiedContent, UploadResponse
 from app.schemas import KnowledgeGraphResponse
 from app.services.audio_service import generate_podcast_audio
 from app.services.knowledge_graph_service import generate_and_store_knowledge_graph, get_knowledge_graph
 from app.services.llm_service import (
+    generate_podcast_script,
     explain_like_twelve,
     generate_learning_bundle,
     infer_methodology_steps,
@@ -1061,6 +1062,24 @@ async def get_paper_recommendations(
                 "detail": detail,
                 "route": "/api/v1/papers/recommendations",
             },
+        )
+
+
+@router.post("/podcast", response_model=PodcastResponse)
+async def generate_podcast(payload: PodcastRequest) -> PodcastResponse:
+    logger.info("Podcast request received paper_id=%s", payload.paper_id)
+    try:
+        record = PAPER_STORE.get(payload.paper_id, {}) if payload.paper_id else {}
+        paper_content = str(payload.paper_content or record.get("text", "")).strip()
+        if not paper_content:
+            paper_content = "Mock paper content: This paper explains a method, a result, and a practical takeaway."
+        script = generate_podcast_script(paper_content)
+        return PodcastResponse(script=script)
+    except Exception as exc:
+        logger.exception("Podcast route failed")
+        return JSONResponse(
+            status_code=200,
+            content={"script": f"Host: We could not generate the podcast right now. Expert: Error handled safely: {type(exc).__name__}."},
         )
 
 
