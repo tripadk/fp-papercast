@@ -7,7 +7,6 @@ import Link from "next/link";
 import { explainPaperLikeIm12, fetchContentStatus, fetchPaperDetail, fetchPaperHistory } from "@/lib/api";
 import { ResearchToolkit } from "@/components/research-toolkit";
 import { UploadForm } from "@/components/upload-form";
-import { MethodologyDiagram } from "@/components/methodology-diagram";
 import { RelatedPapers } from "@/components/related-papers";
 import SummaryCard from "@/components/summary-card";
 import { PodcastAudioPlayer } from "@/components/audio-player";
@@ -390,11 +389,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2 lg:items-start">
-              <div className="space-y-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-200">Methodology Diagram</p>
-                <MethodologyDiagram steps={result?.methodology_steps ?? null} mermaidCode={result?.mermaid_diagram ?? null} />
-              </div>
+            <div className="mt-8 grid grid-cols-1 gap-8 lg:items-start">
               <div className="space-y-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-200">Related Papers</p>
                 <RelatedPapers papers={result?.related_papers ?? null} />
