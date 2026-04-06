@@ -436,13 +436,9 @@ async def _run_background_processing(paper_id: str) -> None:
     def set_status(key: str, val: str) -> None:
         if isinstance(record.get("task_status"), dict):
             record["task_status"][key] = val
-        
-        # Immediately update the processing status list for frontend polling
         status = record.get("task_status", {})
         record["processing_status"] = [
             "Summary Ready" if status.get("summary") == "completed" else "Summary Pending",
-            "Notes Ready" if status.get("notes") == "completed" else "Notes Pending",
-            "Flashcards Ready" if status.get("flashcards") == "completed" else "Flashcards Pending",
             "Transcript Ready" if status.get("transcript") == "completed" else "Transcript Pending",
             "Audio Ready" if status.get("audio") == "completed" and record.get("audio_ready") else "Audio Pending",
         ]
@@ -451,35 +447,21 @@ async def _run_background_processing(paper_id: str) -> None:
 
     try:
         limited_text = str(record.get("limited_text", ""))
-        text = str(record.get("text", ""))
         output_language = str(record.get("output_language", "english"))
         podcast_length = str(record.get("podcast_length", "standard"))
         podcast_style = str(record.get("podcast_style", "casual"))
         study_goal = str(record.get("study_goal", "general"))
         learning_mode = str(record.get("learning_mode", "beginner"))
 
-        cached_bundle = record.pop("precomputed_bundle", {})
-        if isinstance(cached_bundle, dict) and cached_bundle:
-            bundle_result = cached_bundle
-            top_citations_result, related_papers_result = await asyncio.gather(
-                asyncio.to_thread(extract_top_citations, text, 10),
-                asyncio.to_thread(find_related_papers, limited_text),
-                return_exceptions=True,
-            )
-        else:
-            bundle_result, top_citations_result, related_papers_result = await asyncio.gather(
-                asyncio.to_thread(
-                    generate_learning_bundle,
-                    limited_text,
-                    podcast_length,
-                    podcast_style,
-                    study_goal,
-                    learning_mode,
-                ),
-                asyncio.to_thread(extract_top_citations, text, 10),
-                asyncio.to_thread(find_related_papers, limited_text),
-                return_exceptions=True,
-            )
+        # Single combined LLM call — summary + transcript together
+        bundle_result = await asyncio.to_thread(
+            generate_learning_bundle,
+            limited_text,
+            podcast_length,
+            podcast_style,
+            study_goal,
+            learning_mode,
+        )
 
         if isinstance(bundle_result, Exception):
             logger.exception("Background bundle failed for paper_id=%s", paper_id)
@@ -491,69 +473,11 @@ async def _run_background_processing(paper_id: str) -> None:
             record["summary"] = summary_text
         set_status("summary", "completed")
 
-        study_notes = bundle_result.get("study_notes", {})
-        if not isinstance(study_notes, dict):
-            study_notes = _default_study_notes()
-        study_notes = translate_study_notes(study_notes, output_language)
-
-        flashcards = bundle_result.get("flashcards", [])
-        if not isinstance(flashcards, list):
-            flashcards = []
-        translated_flashcards: list[dict[str, str]] = []
-        for card in flashcards:
-            if not isinstance(card, dict):
-                continue
-            translated_flashcards.append(
-                {
-                    "concept": translate_text(str(card.get("concept", "")).strip(), output_language),
-                    "question": translate_text(str(card.get("question", "")).strip(), output_language),
-                    "answer": translate_text(str(card.get("answer", "")).strip(), output_language),
-                    "hint": translate_text(str(card.get("hint", "")).strip(), output_language),
-                }
-            )
-
         transcript = translate_text(str(bundle_result.get("transcript", "")).strip(), output_language)
         if not transcript:
             transcript = f"Host: Let's review this paper.\nExpert: {str(record.get('summary', ''))[:600]}"
 
-        methodology_steps = translate_list(
-            [str(item) for item in infer_methodology_steps(limited_text)],
-            output_language,
-        )
-        mermaid_diagram = methodology_steps_to_mermaid(methodology_steps)
-        top_citations = top_citations_result if isinstance(top_citations_result, list) else []
-        related_papers = related_papers_result if isinstance(related_papers_result, list) else []
-        top_citations = translate_list([str(item) for item in top_citations], output_language)
-        related_papers = translate_related_papers(related_papers, output_language)
-
-        key_insights = [str(card.get("concept", "")).strip() for card in translated_flashcards if str(card.get("concept", "")).strip()][:6]
-        importance_extraction = {
-            "must_know": [str(card.get("answer", "")).strip() for card in translated_flashcards[:3] if str(card.get("answer", "")).strip()],
-            "important": [str(card.get("answer", "")).strip() for card in translated_flashcards[3:6] if str(card.get("answer", "")).strip()],
-            "optional": [str(card.get("answer", "")).strip() for card in translated_flashcards[6:9] if str(card.get("answer", "")).strip()],
-        }
-
-        record["study_notes"] = study_notes
-        record["generated_flashcards"] = translated_flashcards
-        record["key_insights"] = key_insights
-        record["importance_extraction"] = importance_extraction
-        record["methodology_steps"] = methodology_steps
-        record["mermaid_diagram"] = mermaid_diagram
-        record["top_citations"] = top_citations
-        record["related_papers"] = related_papers
-        set_status("notes", "completed")
-        set_status("flashcards", "completed")
-
-        try:
-            chapters = await asyncio.to_thread(generate_podcast_chapters, transcript)
-        except Exception:
-            chapters = [{"title": "Introduction", "start_time": "00:00:00", "summary": "Full audio track"}]
-
-        try:
-            transcript_sentences = await asyncio.to_thread(generate_timestamped_sentences, transcript)
-        except Exception:
-            transcript_sentences = [{"text": transcript, "start_time": "00:00:00", "speaker": "Host"}]
-            
+        # Save transcript to file
         try:
             transcript_file_path = os.path.join(settings.transcript_dir, f"{paper_id}.txt")
             with open(transcript_file_path, "w", encoding="utf-8") as transcript_file:
@@ -561,29 +485,13 @@ async def _run_background_processing(paper_id: str) -> None:
         except Exception:
             transcript_file_path = ""
 
-        notes_content = (
-            f"Core Idea\n{study_notes.get('core_idea', '')}\n\n"
-            f"Key Concepts\n{study_notes.get('key_concepts', '')}\n\n"
-            f"Key Points\n{study_notes.get('key_points', '')}\n\n"
-            f"Important Results\n{study_notes.get('important_results', '')}\n\n"
-            f"Limitations\n{study_notes.get('limitations', '')}\n\n"
-            f"Applications\n{study_notes.get('applications', '')}\n\n"
-            f"Quick Revision\n{study_notes.get('quick_revision', '')}"
-        )
-
-        transcript_pdf_path = generate_pdf("PaperCast Transcript", transcript, settings.transcript_dir, f"{paper_id}_transcript")
-        script_pdf_path = generate_pdf("PaperCast Podcast Script", transcript, settings.transcript_dir, f"{paper_id}_script")
-        notes_pdf_path = generate_pdf("PaperCast Study Notes", notes_content, settings.transcript_dir, f"{paper_id}_notes")
-
         record["transcript"] = transcript
         record["transcript_path"] = transcript_file_path
-        record["transcript_sentences"] = transcript_sentences
-        record["chapters"] = chapters
-        record["transcript_pdf_path"] = transcript_pdf_path
-        record["script_pdf_path"] = script_pdf_path
-        record["notes_pdf_path"] = notes_pdf_path
+        record["transcript_sentences"] = []
+        record["chapters"] = [{"title": "Introduction", "start_time": "00:00:00", "summary": "Full audio track"}]
         set_status("transcript", "completed")
 
+        # Generate audio
         try:
             audio_filename = await asyncio.to_thread(generate_podcast_audio, transcript, settings.audio_dir)
             record["audio_path"] = os.path.join(settings.audio_dir, audio_filename)
@@ -594,14 +502,6 @@ async def _run_background_processing(paper_id: str) -> None:
             record["audio_ready"] = False
         set_status("audio", "completed")
 
-        status = record.get("task_status", {})
-        record["processing_status"] = [
-            "Summary Ready" if status.get("summary") == "completed" else "Summary Pending",
-            "Notes Ready" if status.get("notes") == "completed" else "Notes Pending",
-            "Flashcards Ready" if status.get("flashcards") == "completed" else "Flashcards Pending",
-            "Transcript Ready" if status.get("transcript") == "completed" else "Transcript Pending",
-            "Audio Ready" if status.get("audio") == "completed" and record.get("audio_ready") else "Audio Pending",
-        ]
         _save_cache(record)
     except Exception:
         logger.exception("Unexpected background processing failure for paper_id=%s", paper_id)

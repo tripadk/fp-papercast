@@ -169,15 +169,42 @@ def generate_learning_bundle(
     goal: str = "general",
     learning_mode: str = "beginner",
 ) -> dict[str, Any]:
-    del podcast_length, podcast_style, goal, learning_mode
+    del goal, learning_mode
     source = (text or "").strip()
-    summary = generate_response(
-        f"Summarize this paper in detail with key takeaways, methodology, and extensive explanation.\n\nPaper:\n{source[:12000]}",
-        system_prompt="Write a comprehensive, detailed summary for a student. Ensure all key points, methods, and results are thoroughly explained in at least 3 distinct paragraphs.",
-        max_tokens=1200,
-        fallback=_fallback_text(source, "This paper describes a method, its results, and its main takeaway. The details provide further methodology and evaluation constraints."),
+
+    # Single combined LLM call: summary + transcript together to save time
+    prompt = (
+        f"You are a research assistant. Given the paper below, do TWO things:\n\n"
+        f"1. Write a clear, detailed SUMMARY (3+ paragraphs covering method, results, takeaways).\n"
+        f"2. Write a short PODCAST TRANSCRIPT as a Host & Expert dialogue (10-15 exchanges).\n\n"
+        f"Format your response EXACTLY like this:\n"
+        f"===SUMMARY===\n<your summary here>\n\n===TRANSCRIPT===\n<Host/Expert dialogue here>\n\n"
+        f"Paper:\n{source[:10000]}"
     )
-    transcript = generate_podcast_script(source)
+    combined = generate_response(
+        prompt,
+        system_prompt="You are a helpful research assistant. Follow the format exactly.",
+        max_tokens=1800,
+        fallback="",
+    )
+
+    # Parse out summary and transcript from the combined response
+    summary = ""
+    transcript = ""
+    if "===SUMMARY===" in combined and "===TRANSCRIPT===" in combined:
+        parts = combined.split("===TRANSCRIPT===", 1)
+        summary = parts[0].replace("===SUMMARY===", "").strip()
+        transcript = parts[1].strip()
+    else:
+        # Fallback: use the whole response as both
+        summary = combined.strip() or _fallback_text(source, "This paper describes a method and its results.")
+        transcript = f"Host: What is this paper about?\nExpert: {summary[:600]}"
+
+    if not summary:
+        summary = _fallback_text(source, "This paper describes a method, its results, and its main takeaway.")
+    if not transcript:
+        transcript = generate_podcast_script(source)
+
     return {
         "summary": summary,
         "study_notes": {
