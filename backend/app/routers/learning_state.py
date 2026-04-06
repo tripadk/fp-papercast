@@ -70,6 +70,7 @@ async def get_learning_state(user_id: str) -> LearningStateResponse:
 
 
 @v1_router.get("", response_model=LearningInsightsResponse)
+@v1_router.get("/", response_model=LearningInsightsResponse)
 async def get_learning_insights(user_email: str = Query(...)) -> LearningInsightsResponse:
     logger.info("Learning insights request received user_email=%s", user_email)
     try:
@@ -118,6 +119,7 @@ async def get_learning_insights(user_email: str = Query(...)) -> LearningInsight
 
 
 @insights_router.get("", response_model=LearningInsightsApiResponse)
+@insights_router.get("/", response_model=LearningInsightsApiResponse)
 async def get_learning_insights_api(user_email: str = Query(...)) -> LearningInsightsApiResponse:
     logger.info("Learning insights API request received user_email=%s", user_email)
     try:
