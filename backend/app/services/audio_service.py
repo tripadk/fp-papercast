@@ -75,9 +75,6 @@ def _split_text(text: str, max_chars: int = 3800) -> list[str]:
 
 
 def generate_podcast_audio(transcript: str, audio_dir: str) -> str:
-    os.makedirs(audio_dir, exist_ok=True)
-    filename = f"{uuid.uuid4()}.mp3"
-    filepath = os.path.join(audio_dir, filename)
-    tts = gTTS(text=(transcript or "")[:5000], lang="en", slow=False)
-    tts.save(filepath)
-    return filename
+    filename_stem = str(uuid.uuid4())
+    filepath = synthesize_audio(transcript, audio_dir, filename_stem)
+    return os.path.basename(filepath)

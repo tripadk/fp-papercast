@@ -1,4 +1,4 @@
-const BACKEND_BASE_URL = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "").replace(/\/+$/, "");
+const BACKEND_BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "https://fp-papercast.onrender.com").replace(/\/+$/, "");
 
 function normalizePath(path: string): string {
   if (/^https?:\/\//i.test(path)) {

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, FileText, Headphones, Loader2, PlayCircle } from "lucide-react";
 import { backendAssetUrl } from "@/lib/backend-url";
-import { fetchTranscript } from "@/lib/api";
+import { fetchTranscript, generatePodcast } from "@/lib/api";
 import { PodcastPlayerSkeleton } from "@/components/loading-skeletons";
 import type { PodcastChapter, PodcastLength, PodcastStyle, TranscriptSentence } from "@/lib/types";
 
@@ -18,6 +18,8 @@ type Props = {
   transcriptSentences: TranscriptSentence[];
   podcastLength: PodcastLength;
   podcastStyle: PodcastStyle;
+  paperId?: string | null;
+  paperSummary?: string | null;
   onPodcastLengthChange: (value: PodcastLength) => void;
   onPodcastStyleChange: (value: PodcastStyle) => void;
 };
@@ -33,6 +35,8 @@ export function PodcastAudioPlayer({
   transcriptSentences,
   podcastLength,
   podcastStyle,
+  paperId,
+  paperSummary,
   onPodcastLengthChange,
   onPodcastStyleChange,
 }: Props) {
@@ -47,6 +51,9 @@ export function PodcastAudioPlayer({
   const [duration, setDuration] = useState<number | null>(null);
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState<number>(-1);
   const [currentPlaybackTime, setCurrentPlaybackTime] = useState<number>(0);
+  const [podcastScript, setPodcastScript] = useState<string | null>(null);
+  const [podcastScriptError, setPodcastScriptError] = useState<string | null>(null);
+  const [isLoadingScript, setIsLoadingScript] = useState(false);
 
   const hasTimestampedTranscript = transcriptSentences.length > 0;
 
@@ -104,6 +111,41 @@ export function PodcastAudioPlayer({
     });
     setCurrentSentenceIndex(index);
   }, [currentPlaybackTime, hasTimestampedTranscript, transcriptSentences]);
+
+  useEffect(() => {
+    if (audioReady || (!paperId && !paperSummary)) {
+      setPodcastScript(null);
+      setPodcastScriptError(null);
+      setIsLoadingScript(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoadingScript(true);
+    setPodcastScript(null);
+    setPodcastScriptError(null);
+
+    generatePodcast({ paperId: paperId ?? "", paperContent: paperSummary ?? "" })
+      .then((payload) => {
+        if (!cancelled) {
+          setPodcastScript(payload.script);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setPodcastScriptError(error instanceof Error ? error.message : "Could not generate podcast script.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoadingScript(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [audioReady, paperId, paperSummary]);
 
   const jumpToChapter = (time: string) => {
     if (!audioRef.current) return;
@@ -207,7 +249,26 @@ export function PodcastAudioPlayer({
           )}
         </div>
       ) : (
-        <PodcastPlayerSkeleton />
+        <div className="space-y-4">
+          <PodcastPlayerSkeleton />
+          <div className="rounded-2xl border border-white/15 bg-slate-950/30 p-4">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.15em] text-sky-200">Podcast Script</h3>
+            {isLoadingScript ? (
+              <p className="mt-3 inline-flex items-center gap-2 text-sm text-slate-300">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Generating script...
+              </p>
+            ) : podcastScriptError ? (
+              <p className="mt-3 text-sm text-rose-300">{podcastScriptError}</p>
+            ) : podcastScript ? (
+              <pre className="custom-scrollbar mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-xl border border-white/10 bg-black/20 p-4 text-sm leading-7 text-slate-200">
+                {podcastScript}
+              </pre>
+            ) : (
+              <p className="mt-3 text-sm text-slate-300">Upload a paper to generate a podcast script.</p>
+            )}
+          </div>
+        </div>
       )}
 
       {transcriptPath && (

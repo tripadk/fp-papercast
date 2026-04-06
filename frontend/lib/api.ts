@@ -1,9 +1,23 @@
-import type { LearningMode, OutputLanguage, PaperHistoryItem, PodcastLength, PodcastStyle, SimplifiedExplanationResult, StudyGoal, UploadResult, UserProfile, UserProfileUpdatePayload } from "./types";
+import type {
+  ChatMessage,
+  ChatResponse,
+  LearningInsightsResponse,
+  PaperHistoryItem,
+  PodcastLength,
+  PodcastResponse,
+  PodcastStyle,
+  SimplifiedExplanationResult,
+  StudyGoal,
+  UploadResult,
+  UserProfile,
+  UserProfileUpdatePayload,
+  LearningMode,
+  OutputLanguage,
+} from "./types";
 
-const BASE_URL = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://fp-papercast.onrender.com").replace(/\/+$/, "");
+const BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "https://fp-papercast.onrender.com").replace(/\/+$/, "");
 const PAPERS_PREFIX = "/api/v1/papers";
-const USER_PREFIX = "/api/v1/user";
-const DISABLED_API_ERROR = "This frontend API is disabled until the backend exposes a stable non-user_id-dependent route.";
+const USER_PREFIX = "/user";
 
 export function api(path: string) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
@@ -49,8 +63,47 @@ export async function uploadPaper(
   }
 }
 
-export async function askPaperQuestion() {
-  throw new Error(DISABLED_API_ERROR);
+export async function askPaperQuestion(paperId: string, question: string, history: ChatMessage[]) {
+  const response = await fetch(api("/api/v1/chat"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ paper_id: paperId, question, history }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Q&A failed: ${await readErrorMessage(response)}`);
+  }
+
+  return (await response.json()) as ChatResponse;
+}
+
+export async function generatePodcast(payload: { paperId?: string; paperContent?: string }) {
+  const response = await fetch(api("/api/v1/podcast"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      paper_id: payload.paperId ?? "",
+      paper_content: payload.paperContent ?? "",
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Podcast generation failed: ${await readErrorMessage(response)}`);
+  }
+
+  return (await response.json()) as PodcastResponse;
+}
+
+export async function fetchLearningInsights(userEmail: string) {
+  const response = await fetch(api(`/api/v1/learning-insights?user_email=${encodeURIComponent(userEmail)}`));
+  if (!response.ok) {
+    throw new Error(`Learning insights failed: ${await readErrorMessage(response)}`);
+  }
+  return (await response.json()) as LearningInsightsResponse;
 }
 
 export async function fetchTranscript(transcriptPath: string) {
@@ -99,18 +152,6 @@ export async function explainPaperLikeIm12(paperId: string) {
   return response.json() as Promise<SimplifiedExplanationResult>;
 }
 
-export async function fetchActiveRecall() {
-  throw new Error(DISABLED_API_ERROR);
-}
-
-export async function submitActiveRecallAttempt() {
-  throw new Error(DISABLED_API_ERROR);
-}
-
-export async function fetchChatHistory() {
-  throw new Error(DISABLED_API_ERROR);
-}
-
 export async function fetchUserProfile(userEmail: string, name = "", profileImage = "") {
   const response = await fetch(
     api(`${USER_PREFIX}/profile?user_email=${encodeURIComponent(userEmail)}&name=${encodeURIComponent(name)}&profile_image=${encodeURIComponent(profileImage)}`)
@@ -135,46 +176,6 @@ export async function updateUserProfile(payload: UserProfileUpdatePayload) {
   return response.json() as Promise<UserProfile>;
 }
 
-export async function fetchUserGoal() {
-  throw new Error(DISABLED_API_ERROR);
-}
-
-export async function updateUserGoal() {
-  throw new Error(DISABLED_API_ERROR);
-}
-
-export async function fetchKnowledgeGraph() {
-  throw new Error(DISABLED_API_ERROR);
-}
-
-export async function fetchNextMode() {
-  throw new Error(DISABLED_API_ERROR);
-}
-
-export async function fetchConfusionStatus() {
-  throw new Error(DISABLED_API_ERROR);
-}
-
-export async function updateConfusionStatus() {
-  throw new Error(DISABLED_API_ERROR);
-}
-
-export async function fetchLearningEfficiency() {
-  throw new Error(DISABLED_API_ERROR);
-}
-
-export async function updateLearningEfficiency() {
-  throw new Error(DISABLED_API_ERROR);
-}
-
-export async function fetchLearningState() {
-  throw new Error(DISABLED_API_ERROR);
-}
-
-export async function fetchLearningNextAction() {
-  throw new Error(DISABLED_API_ERROR);
-}
-
 async function readErrorMessage(response: Response) {
   const rawText = await response.text();
   if (!rawText) {
@@ -182,8 +183,8 @@ async function readErrorMessage(response: Response) {
   }
 
   try {
-    const parsed = JSON.parse(rawText) as { detail?: string };
-    return parsed.detail ?? rawText;
+    const parsed = JSON.parse(rawText) as { detail?: string; error?: string };
+    return parsed.detail ?? parsed.error ?? rawText;
   } catch {
     return rawText;
   }

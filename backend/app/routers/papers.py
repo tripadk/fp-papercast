@@ -14,15 +14,14 @@ from typing import Any, Literal
 from urllib.request import Request, urlopen
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse
 
 from app.core.config import settings
-from app.schemas import IngestContentResponse, PaperHistoryResponse, PaperRecommendationsResponse, PodcastRequest, PodcastResponse, SimplifiedExplanationResponse, UnifiedContent, UploadResponse
+from app.schemas import IngestContentResponse, PaperHistoryResponse, SimplifiedExplanationResponse, UnifiedContent, UploadResponse
 from app.schemas import KnowledgeGraphResponse
 from app.services.audio_service import generate_podcast_audio
 from app.services.knowledge_graph_service import generate_and_store_knowledge_graph, get_knowledge_graph
 from app.services.llm_service import (
-    generate_podcast_script,
     explain_like_twelve,
     generate_learning_bundle,
     infer_methodology_steps,
@@ -44,7 +43,7 @@ from app.services.translation_service import (
 )
 from app.store import CONTENT_STORE, KNOWLEDGE_GRAPH_STORE, LEARNING_STORE, PAPER_HISTORY, PAPER_STORE, save_state
 
-router = APIRouter(prefix="/api/v1/papers", tags=["papers"])
+router = APIRouter(prefix="/papers", tags=["papers"])
 logger = logging.getLogger(__name__)
 
 SECTION_HEADINGS = {
@@ -251,118 +250,6 @@ def _initial_task_status() -> dict[str, str]:
         "transcript": "pending",
         "audio": "pending",
     }
-
-
-def _create_lightweight_paper_record(
-    *,
-    paper_id: str,
-    title: str,
-    source_type: Literal["pdf", "text", "url"],
-    user_email: str,
-    podcast_length: str,
-    podcast_style: str,
-    study_goal: str,
-    learning_mode: str,
-    output_language: str,
-    raw_text: str = "",
-) -> dict[str, Any]:
-    created_at = datetime.now(UTC).isoformat()
-    record = {
-        "paper_id": paper_id,
-        "title": title.strip() or "Untitled Content",
-        "content": _build_unified_content(
-            paper_id=paper_id,
-            title=title.strip() or "Untitled Content",
-            raw_text=raw_text.strip(),
-            source_type=source_type,
-            created_at=created_at,
-        ),
-        "source_type": source_type,
-        "user_email": user_email,
-        "text": raw_text.strip(),
-        "limited_text": raw_text.strip()[:1000],
-        "text_cache_path": "",
-        "summary": "Heavy processing is disabled by default. Re-submit with ?enable_heavy=true to generate AI outputs.",
-        "key_insights": [],
-        "transcript": "",
-        "transcript_path": "",
-        "audio_path": "",
-        "audio_ready": False,
-        "audio_url": "",
-        "transcript_pdf_path": "",
-        "script_pdf_path": "",
-        "notes_pdf_path": "",
-        "podcast_length": podcast_length,
-        "podcast_style": podcast_style,
-        "study_goal": study_goal,
-        "learning_mode": learning_mode,
-        "quiz_difficulty": _quiz_difficulty_for_mode(learning_mode),
-        "output_language": output_language,
-        "chapters": [],
-        "transcript_sentences": [],
-        "methodology_steps": [],
-        "mermaid_diagram": "flowchart LR\nA[Upload Received] --> B[Heavy Processing Disabled]",
-        "related_papers": [],
-        "top_citations": [],
-        "study_notes": _default_study_notes(),
-        "importance_extraction": _default_importance_extraction(),
-        "knowledge_graph": {"topics": []},
-        "knowledge_navigation": [],
-        "learning_path": [],
-        "generated_flashcards": [],
-        "task_status": {
-            "summary": "skipped",
-            "notes": "skipped",
-            "flashcards": "skipped",
-            "transcript": "skipped",
-            "audio": "skipped",
-        },
-        "processing_status": [
-            "Upload received",
-            "Heavy processing disabled",
-            "Re-submit with enable_heavy=true for AI generation",
-        ],
-        "uploaded_at": created_at,
-        "simple_explanation": "Heavy processing is disabled. Re-submit with enable_heavy=true to generate a simplified explanation.",
-    }
-    PAPER_STORE[paper_id] = record
-    history_item = {
-        "paper_id": paper_id,
-        "user_email": user_email,
-        "paper_title": record["title"],
-        "upload_timestamp": created_at,
-        "summary": record["summary"],
-        "audio_url": "",
-    }
-    PAPER_HISTORY.append(history_item)
-    _save_cache(record)
-    save_state()
-    return record
-
-
-def create_lightweight_upload_response(
-    *,
-    file_name: str,
-    user_email: str,
-    podcast_length: str,
-    podcast_style: str,
-    study_goal: str,
-    learning_mode: str,
-    output_language: str,
-) -> UploadResponse:
-    paper_id = str(uuid.uuid4())
-    record = _create_lightweight_paper_record(
-        paper_id=paper_id,
-        title=file_name or "Uploaded PDF",
-        source_type="pdf",
-        user_email=user_email,
-        podcast_length=podcast_length,
-        podcast_style=podcast_style,
-        study_goal=study_goal,
-        learning_mode=learning_mode,
-        output_language=output_language,
-    )
-    return _build_upload_response(record)
 
 
 async def _process_upload(
@@ -681,7 +568,7 @@ async def _run_background_processing(paper_id: str) -> None:
         try:
             audio_filename = await asyncio.to_thread(generate_podcast_audio, transcript, settings.audio_dir)
             record["audio_path"] = os.path.join(settings.audio_dir, audio_filename)
-            record["audio_url"] = f"/api/v1/papers/audio/{audio_filename}"
+            record["audio_url"] = f"/papers/audio/{audio_filename}"
             record["audio_ready"] = True
         except Exception:
             logger.exception("Audio generation failed for paper_id=%s", paper_id)
@@ -719,13 +606,13 @@ def _build_upload_response(record: dict) -> UploadResponse:
     return UploadResponse(
         paper_id=record.get("paper_id", ""),
         summary=record.get("summary", ""),
-        transcript_path=f"/api/v1/papers/transcript/{transcript_file}" if transcript_file else "",
-        audio_path=f"/api/v1/papers/audio/{audio_file}" if audio_file else "",
+        transcript_path=f"/papers/transcript/{transcript_file}" if transcript_file else "",
+        audio_path=f"/papers/audio/{audio_file}" if audio_file else "",
         audio_url=record.get("audio_url"),
         audio_ready=bool(record.get("audio_ready", False)),
-        transcript_download_url=f"/api/v1/papers/download/{transcript_pdf}" if transcript_pdf else "",
-        podcast_script_download_url=f"/api/v1/papers/download/{script_pdf}" if script_pdf else "",
-        notes_download_url=f"/api/v1/papers/download/{notes_pdf}" if notes_pdf else "",
+        transcript_download_url=f"/papers/download/{transcript_pdf}" if transcript_pdf else "",
+        podcast_script_download_url=f"/papers/download/{script_pdf}" if script_pdf else "",
+        notes_download_url=f"/papers/download/{notes_pdf}" if notes_pdf else "",
         podcast_length=record.get("podcast_length", "standard"),
         podcast_style=record.get("podcast_style", "casual"),
         study_goal=record.get("study_goal", "general"),
@@ -800,41 +687,10 @@ async def upload_paper(
     learning_mode: Literal["beginner", "exam_mode", "deep_learning", "quick_revision"] = Form("beginner"),
     output_language: Literal["english", "hindi"] = Form("english"),
     user_email: str = Form("anonymous@local"),
-    enable_heavy: bool = Query(False),
 ) -> UploadResponse:
-    logger.info(
-        "Paper upload route hit user_email=%s filename=%s content_type=%s",
-        user_email,
-        file.filename,
-        file.content_type,
+    return await _process_upload(
+        file, podcast_length, podcast_style, study_goal, learning_mode, output_language, user_email
     )
-    print(
-        f"[route:/api/v1/papers/upload] request received user_email={user_email} filename={file.filename} "
-        f"content_type={file.content_type}"
-    )
-    try:
-        if not enable_heavy:
-            return create_lightweight_upload_response(
-                file_name=file.filename or "Uploaded PDF",
-                user_email=user_email,
-                podcast_length=podcast_length,
-                podcast_style=podcast_style,
-                study_goal=study_goal,
-                learning_mode=learning_mode,
-                output_language=output_language,
-            )
-        return await _process_upload(
-            file, podcast_length, podcast_style, study_goal, learning_mode, output_language, user_email
-        )
-    except Exception as exc:
-        logger.exception("Unhandled error in /api/v1/papers/upload")
-        print(f"[route:/api/v1/papers/upload][error] {type(exc).__name__}: {exc}")
-        status_code = getattr(exc, "status_code", 500)
-        detail = getattr(exc, "detail", str(exc))
-        return JSONResponse(
-            status_code=status_code,
-            content={"error": "paper_upload_failed", "detail": detail, "route": "/api/v1/papers/upload"},
-        )
 
 
 @router.post("/ingest", response_model=IngestContentResponse)
@@ -849,7 +705,6 @@ async def ingest_content(
     learning_mode: Literal["beginner", "exam_mode", "deep_learning", "quick_revision"] = Form("beginner"),
     output_language: Literal["english", "hindi"] = Form("english"),
     user_email: str = Form("anonymous@local"),
-    enable_heavy: bool = Query(False),
 ) -> IngestContentResponse:
     sources_selected = int(file is not None) + int(bool(raw_text.strip())) + int(bool(source_url.strip()))
     if sources_selected != 1:
@@ -860,31 +715,6 @@ async def ingest_content(
     source_type: Literal["pdf", "text", "url"]
     source_text = ""
     resolved_title = title.strip()
-
-    if not enable_heavy:
-        placeholder_paper_id = str(uuid.uuid4())
-        if file is not None:
-            source_type = "pdf"
-            resolved_title = resolved_title or file.filename or "Uploaded PDF"
-        elif raw_text.strip():
-            source_type = "text"
-            resolved_title = resolved_title or "Submitted Text"
-        else:
-            source_type = "url"
-            resolved_title = resolved_title or source_url.strip() or "Web Content"
-        record = _create_lightweight_paper_record(
-            paper_id=placeholder_paper_id,
-            title=resolved_title,
-            source_type=source_type,
-            user_email=user_email,
-            podcast_length=podcast_length,
-            podcast_style=podcast_style,
-            study_goal=study_goal,
-            learning_mode=learning_mode,
-            output_language=output_language,
-            raw_text=raw_text[:1000] if raw_text else "",
-        )
-        return IngestContentResponse(content=_build_unified_content_response(record), analysis=_build_upload_response(record))
 
     if file is not None:
         if file.content_type != "application/pdf":
@@ -924,69 +754,31 @@ async def ingest_content(
 
 @router.get("/history", response_model=PaperHistoryResponse)
 async def get_history(user_email: str = Query(...)) -> PaperHistoryResponse:
-    logger.info("Paper history requested user_email=%s", user_email)
-    print(f"[route:/api/v1/papers/history] request received user_email={user_email}")
-    try:
-        papers = [item for item in PAPER_HISTORY if item.get("user_email") == user_email]
-        papers.sort(key=lambda item: item.get("upload_timestamp", ""), reverse=True)
-        return PaperHistoryResponse(papers=papers)
-    except Exception as exc:
-        logger.exception("Unhandled error in /api/v1/papers/history for user_email=%s", user_email)
-        print(f"[route:/api/v1/papers/history][error] {type(exc).__name__}: {exc}")
-        status_code = getattr(exc, "status_code", 500)
-        detail = getattr(exc, "detail", str(exc))
-        return JSONResponse(
-            status_code=status_code,
-            content={"error": "paper_history_failed", "detail": detail, "route": "/api/v1/papers/history"},
-        )
+    papers = [item for item in PAPER_HISTORY if item.get("user_email") == user_email]
+    papers.sort(key=lambda item: item.get("upload_timestamp", ""), reverse=True)
+    return PaperHistoryResponse(papers=papers)
 
 
 @router.get("/{paper_id}", response_model=UploadResponse)
 async def get_paper_detail(paper_id: str, user_email: str = Query("")) -> UploadResponse:
-    print(f"[route:/api/v1/papers/{{paper_id}}] request received paper_id={paper_id} user_email={user_email}")
-    try:
-        paper = _get_paper_record(paper_id)
-        effective_user_email = user_email.strip() or str(paper.get("user_email", "")).strip()
-        if effective_user_email:
-            record_topic_view(
-                store=LEARNING_STORE,
-                user_email=effective_user_email,
-                topic=str(paper.get("title", "paper detail view")).strip() or "paper detail view",
-                paper_id=paper_id,
-                confidence=4,
-                source="content_view",
-            )
-        return _build_upload_response(paper)
-    except Exception as exc:
-        logger.exception("Unhandled error in /api/v1/papers/%s", paper_id)
-        print(f"[route:/api/v1/papers/{{paper_id}}][error] {type(exc).__name__}: {exc}")
-        status_code = getattr(exc, "status_code", 500)
-        detail = getattr(exc, "detail", str(exc))
-        return JSONResponse(
-            status_code=status_code,
-            content={"error": "paper_detail_failed", "detail": detail, "route": f"/api/v1/papers/{paper_id}"},
+    paper = _get_paper_record(paper_id)
+    effective_user_email = user_email.strip() or str(paper.get("user_email", "")).strip()
+    if effective_user_email:
+        record_topic_view(
+            store=LEARNING_STORE,
+            user_email=effective_user_email,
+            topic=str(paper.get("title", "paper detail view")).strip() or "paper detail view",
+            paper_id=paper_id,
+            confidence=4,
+            source="content_view",
         )
+    return _build_upload_response(paper)
 
 
 @router.get("/status/{content_id}", response_model=UploadResponse)
 async def get_processing_status(content_id: str) -> UploadResponse:
-    print(f"[route:/api/v1/papers/status/{{content_id}}] request received content_id={content_id}")
-    try:
-        paper = _get_paper_record(content_id)
-        return _build_upload_response(paper)
-    except Exception as exc:
-        logger.exception("Unhandled error in /api/v1/papers/status/%s", content_id)
-        print(f"[route:/api/v1/papers/status/{{content_id}}][error] {type(exc).__name__}: {exc}")
-        status_code = getattr(exc, "status_code", 500)
-        detail = getattr(exc, "detail", str(exc))
-        return JSONResponse(
-            status_code=status_code,
-            content={
-                "error": "paper_status_failed",
-                "detail": detail,
-                "route": f"/api/v1/papers/status/{content_id}",
-            },
-        )
+    paper = _get_paper_record(content_id)
+    return _build_upload_response(paper)
 
 
 @router.get("/{content_id}/knowledge-graph", response_model=KnowledgeGraphResponse)
@@ -1003,97 +795,9 @@ async def get_content_knowledge_graph(content_id: str) -> KnowledgeGraphResponse
     )
 
 
-@router.get("/recommendations", response_model=PaperRecommendationsResponse)
-async def get_paper_recommendations(
-    paper_id: str = Query(default=""),
-    user_email: str = Query(default=""),
-    enable_heavy: bool = Query(False),
-) -> PaperRecommendationsResponse:
-    logger.info("Paper recommendations requested paper_id=%s user_email=%s", paper_id, user_email)
-    print(f"[route:/api/v1/papers/recommendations] request received paper_id={paper_id} user_email={user_email}")
-    try:
-        if not paper_id and not user_email:
-            raise HTTPException(status_code=400, detail="Provide paper_id or user_email.")
-
-        source_record: dict[str, Any] | None = None
-        source = ""
-        if paper_id:
-            source_record = _get_paper_record(paper_id)
-            source = "paper"
-        elif user_email:
-            matching_history = [item for item in PAPER_HISTORY if item.get("user_email") == user_email]
-            matching_history.sort(key=lambda item: item.get("upload_timestamp", ""), reverse=True)
-            if not matching_history:
-                return PaperRecommendationsResponse(source="user", user_email=user_email, recommendations=[])
-            source_record = _get_paper_record(str(matching_history[0].get("paper_id", "")))
-            paper_id = str(source_record.get("paper_id", ""))
-            source = "user"
-
-        if not enable_heavy:
-            existing = (source_record or {}).get("related_papers", [])
-            recommendations = existing if isinstance(existing, list) else []
-            return PaperRecommendationsResponse(
-                source=source or "paper",
-                paper_id=paper_id,
-                user_email=user_email,
-                recommendations=recommendations,
-            )
-
-        text = str((source_record or {}).get("text", "")).strip()
-        if not text:
-            raise HTTPException(status_code=404, detail="No paper content available for recommendations.")
-
-        recommendations = find_related_papers(text)
-        return PaperRecommendationsResponse(
-            source=source or "paper",
-            paper_id=paper_id,
-            user_email=user_email,
-            recommendations=recommendations,
-        )
-    except Exception as exc:
-        logger.exception("Unhandled error in /api/v1/papers/recommendations")
-        print(f"[route:/api/v1/papers/recommendations][error] {type(exc).__name__}: {exc}")
-        status_code = getattr(exc, "status_code", 500)
-        detail = getattr(exc, "detail", str(exc))
-        return JSONResponse(
-            status_code=status_code,
-            content={
-                "error": "paper_recommendations_failed",
-                "detail": detail,
-                "route": "/api/v1/papers/recommendations",
-            },
-        )
-
-
-@router.post("/podcast", response_model=PodcastResponse)
-async def generate_podcast(payload: PodcastRequest) -> PodcastResponse:
-    logger.info("Podcast request received paper_id=%s", payload.paper_id)
-    try:
-        record = PAPER_STORE.get(payload.paper_id, {}) if payload.paper_id else {}
-        paper_content = str(payload.paper_content or record.get("text", "")).strip()
-        if not paper_content:
-            paper_content = "Mock paper content: This paper explains a method, a result, and a practical takeaway."
-        script = generate_podcast_script(paper_content)
-        return PodcastResponse(script=script)
-    except Exception as exc:
-        logger.exception("Podcast route failed")
-        return JSONResponse(
-            status_code=200,
-            content={"script": f"Host: We could not generate the podcast right now. Expert: Error handled safely: {type(exc).__name__}."},
-        )
-
-
 @router.post("/{paper_id}/explain-like-im-12", response_model=SimplifiedExplanationResponse)
-async def explain_paper_like_twelve(paper_id: str, enable_heavy: bool = Query(False)) -> SimplifiedExplanationResponse:
+async def explain_paper_like_twelve(paper_id: str) -> SimplifiedExplanationResponse:
     paper = _get_paper_record(paper_id)
-    if not enable_heavy:
-        explanation = str(
-            paper.get(
-                "simple_explanation",
-                "Heavy processing is disabled. Re-submit with enable_heavy=true to generate a simplified explanation.",
-            )
-        )
-        return SimplifiedExplanationResponse(paper_id=paper_id, explanation=explanation)
     explanation = await asyncio.to_thread(explain_like_twelve, paper.get("text", ""), paper.get("summary", ""))
     explanation = translate_text(explanation, paper.get("output_language", "english"))
     paper["simple_explanation"] = explanation

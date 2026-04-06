@@ -5,12 +5,13 @@ import logging
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
-from app.schemas import LearningInsightsResponse, LearningStateResponse
+from app.schemas import LearningInsightsApiResponse, LearningInsightsResponse, LearningStateResponse
 from app.services.llm_service import analyze_learning_progress
 from app.store import LEARNING_STORE
 
 router = APIRouter(prefix="/learning-state", tags=["learning-state"])
 v1_router = APIRouter(prefix="/api/v1/learning-state", tags=["learning-state"])
+insights_router = APIRouter(prefix="/api/v1/learning-insights", tags=["learning-insights"])
 logger = logging.getLogger(__name__)
 
 
@@ -24,6 +25,43 @@ def _mock_progress(user_email: str) -> dict:
         "progress": {"completed_topics": completed_topics, "average_score": average_score},
         "weak_topics": weak_topics or ["Research methods", "Result interpretation"],
     }
+
+
+def _build_learning_insights_payload(user_email: str) -> LearningInsightsApiResponse:
+    progress_payload = _mock_progress(user_email)
+    progress = progress_payload["progress"]
+    analysis = analyze_learning_progress(progress_payload)
+    completed_topics = int(progress.get("completed_topics", 0) or 0)
+    average_score = int(progress.get("average_score", 0) or 0)
+    weak_topics = progress_payload["weak_topics"]
+
+    strengths = [
+        "Learning activity is being tracked consistently.",
+        f"Average score is currently {average_score}%.",
+    ]
+    if completed_topics > 0:
+        strengths.append(f"{completed_topics} topics have been completed so far.")
+
+    weaknesses = weak_topics[:3] or ["Foundational understanding still needs reinforcement."]
+    recommendations = [
+        f"Review {topic} with short notes and one follow-up question."
+        for topic in weaknesses[:3]
+    ]
+    if analysis:
+        recommendations.append(analysis[:240])
+
+    progress_summary = (
+        f"Completed topics: {completed_topics}. "
+        f"Average score: {average_score}%. "
+        f"Current weak areas: {', '.join(weaknesses)}."
+    )
+    return LearningInsightsApiResponse(
+        user_email=user_email,
+        progress_summary=progress_summary,
+        strengths=strengths,
+        weaknesses=weaknesses,
+        recommendations=recommendations[:4],
+    )
 
 
 @router.get("/{user_id}", response_model=LearningStateResponse)
@@ -75,5 +113,24 @@ async def get_learning_insights(user_email: str = Query(...)) -> LearningInsight
                         "priority": "medium",
                     }
                 ],
+            },
+        )
+
+
+@insights_router.get("", response_model=LearningInsightsApiResponse)
+async def get_learning_insights_api(user_email: str = Query(...)) -> LearningInsightsApiResponse:
+    logger.info("Learning insights API request received user_email=%s", user_email)
+    try:
+        return _build_learning_insights_payload(user_email)
+    except Exception as exc:
+        logger.exception("Learning insights API route failed")
+        return JSONResponse(
+            status_code=200,
+            content={
+                "user_email": user_email,
+                "progress_summary": "Could not compute live learning insights.",
+                "strengths": ["The learner profile is available."],
+                "weaknesses": ["Live analysis is temporarily unavailable."],
+                "recommendations": [f"Fallback used due to {type(exc).__name__}."],
             },
         )

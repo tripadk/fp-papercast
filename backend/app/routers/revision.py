@@ -45,7 +45,7 @@ from app.services.spaced_repetition_service import (
 )
 from app.store import CONFUSION_STORE, LEARNING_STORE, PAPER_STORE
 
-router = APIRouter(prefix="/api/v1/revision", tags=["revision"])
+router = APIRouter(prefix="/revision", tags=["revision"])
 
 
 @router.post("/view-topic")

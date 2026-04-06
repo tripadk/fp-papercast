@@ -2,24 +2,21 @@ from typing import Literal
 import logging
 import os
 
-from fastapi import FastAPI, File, Form, Query, UploadFile
+from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
 from app.routers import chat, learning_state, papers, revision, user
 from app.routers.chat import _answer_question
-from app.routers.chat import router as chat_router
 from app.routers.content import router as content_router
 from app.routers.events import router as events_router
 from app.routers.learning import router as learning_router
-from app.routers.learning_state import router as learning_state_router
-from app.routers.papers import _build_upload_response, _get_paper_record, _process_upload, create_lightweight_upload_response
-from app.routers.papers import router as papers_router
-from app.routers.revision import router as revision_router
-from app.routers.user import router as user_router
-from app.schemas import ChatRequest, ChatResponse, UploadResponse
+from app.routers.papers import _build_upload_response, _get_paper_record, _process_upload
+from app.schemas import ChatRequest, ChatResponse, PodcastRequest, PodcastResponse, UploadResponse
 from app.services.event_ledger_service import init_event_ledger
+from app.services.llm_service import generate_podcast_script
+from app.store import PAPER_STORE
 
 app = FastAPI(
     title="PaperCast API",
@@ -28,11 +25,13 @@ app = FastAPI(
     redoc_url="/redoc",
     openapi_url="/openapi.json",
 )
+cors_origins = [origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()]
+for origin in ("http://localhost:3000", "https://fp-papercast.vercel.app"):
+    if origin not in cors_origins:
+        cors_origins.append(origin)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://fp-papercast.vercel.app",
-    ],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -56,6 +55,7 @@ app.include_router(chat.router)
 app.include_router(revision.router)
 app.include_router(learning_state.router)
 app.include_router(learning_state.v1_router)
+app.include_router(learning_state.insights_router)
 app.include_router(content_router)
 app.include_router(events_router)
 app.include_router(learning_router)
@@ -76,7 +76,6 @@ async def upload(
     learning_mode: Literal["beginner", "exam_mode", "deep_learning", "quick_revision"] = Form("beginner"),
     output_language: Literal["english", "hindi"] = Form("english"),
     user_email: str = Form("anonymous@local"),
-    enable_heavy: bool = Query(False),
 ) -> UploadResponse:
     logger.info("Upload request received for user=%s filename=%s", user_email, file.filename)
     print(
@@ -85,16 +84,6 @@ async def upload(
         f"study_goal={study_goal} learning_mode={learning_mode} output_language={output_language}"
     )
     try:
-        if not enable_heavy:
-            return create_lightweight_upload_response(
-                file_name=file.filename or "Uploaded PDF",
-                user_email=user_email,
-                podcast_length=podcast_length,
-                podcast_style=podcast_style,
-                study_goal=study_goal,
-                learning_mode=learning_mode,
-                output_language=output_language,
-            )
         return await _process_upload(
             file, podcast_length, podcast_style, study_goal, learning_mode, output_language, user_email
         )
@@ -118,23 +107,12 @@ async def upload_paper_root(
     learning_mode: Literal["beginner", "exam_mode", "deep_learning", "quick_revision"] = Form("beginner"),
     output_language: Literal["english", "hindi"] = Form("english"),
     user_email: str = Form("anonymous@local"),
-    enable_heavy: bool = Query(False),
 ) -> UploadResponse:
     print(
         f"[route:/upload-paper] request received user_email={user_email} filename={file.filename} "
         f"content_type={file.content_type}"
     )
     try:
-        if not enable_heavy:
-            return create_lightweight_upload_response(
-                file_name=file.filename or "Uploaded PDF",
-                user_email=user_email,
-                podcast_length=podcast_length,
-                podcast_style=podcast_style,
-                study_goal=study_goal,
-                learning_mode=learning_mode,
-                output_language=output_language,
-            )
         return await _process_upload(
             file, podcast_length, podcast_style, study_goal, learning_mode, output_language, user_email
         )
@@ -158,23 +136,12 @@ async def upload_paper_alias(
     learning_mode: Literal["beginner", "exam_mode", "deep_learning", "quick_revision"] = Form("beginner"),
     output_language: Literal["english", "hindi"] = Form("english"),
     user_email: str = Form("anonymous@local"),
-    enable_heavy: bool = Query(False),
 ) -> UploadResponse:
     print(
         f"[route:/papers/upload] request received user_email={user_email} filename={file.filename} "
         f"content_type={file.content_type}"
     )
     try:
-        if not enable_heavy:
-            return create_lightweight_upload_response(
-                file_name=file.filename or "Uploaded PDF",
-                user_email=user_email,
-                podcast_length=podcast_length,
-                podcast_style=podcast_style,
-                study_goal=study_goal,
-                learning_mode=learning_mode,
-                output_language=output_language,
-            )
         return await _process_upload(
             file, podcast_length, podcast_style, study_goal, learning_mode, output_language, user_email
         )
@@ -190,11 +157,9 @@ async def upload_paper_alias(
 
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat_root(payload: ChatRequest, enable_heavy: bool = Query(False)) -> ChatResponse:
+async def chat_root(payload: ChatRequest) -> ChatResponse:
     print(f"[route:/chat] request received paper_id={payload.paper_id} history_items={len(payload.history)}")
     try:
-        if not enable_heavy:
-            return ChatResponse(answer="Heavy chat is disabled by default. Re-submit with ?enable_heavy=true to run the LLM.")
         return await _answer_question(payload)
     except Exception as exc:
         logger.exception("Unhandled error in /chat")
@@ -204,6 +169,39 @@ async def chat_root(payload: ChatRequest, enable_heavy: bool = Query(False)) -> 
         return JSONResponse(
             status_code=status_code,
             content={"error": "chat_failed", "detail": detail, "route": "/chat"},
+        )
+
+
+@app.post("/api/v1/chat", response_model=ChatResponse)
+async def api_v1_chat(payload: ChatRequest) -> ChatResponse:
+    print(f"[route:/api/v1/chat] request received paper_id={payload.paper_id} history_items={len(payload.history)}")
+    try:
+        return await _answer_question(payload)
+    except Exception as exc:
+        logger.exception("Unhandled error in /api/v1/chat")
+        print(f"[route:/api/v1/chat][error] {type(exc).__name__}: {exc}")
+        status_code = getattr(exc, "status_code", 500)
+        detail = getattr(exc, "detail", str(exc))
+        return JSONResponse(
+            status_code=status_code,
+            content={"error": "chat_failed", "detail": detail, "route": "/api/v1/chat"},
+        )
+
+
+@app.post("/api/v1/podcast", response_model=PodcastResponse)
+async def podcast_root(payload: PodcastRequest) -> PodcastResponse:
+    print(f"[route:/api/v1/podcast] request received paper_id={payload.paper_id}")
+    try:
+        record = PAPER_STORE.get(payload.paper_id, {}) if payload.paper_id else {}
+        paper_content = str(payload.paper_content or record.get("text", "")).strip()
+        if not paper_content:
+            paper_content = "Mock paper content: This paper explains a method, a result, and a practical takeaway."
+        return PodcastResponse(script=generate_podcast_script(paper_content))
+    except Exception as exc:
+        logger.exception("Unhandled error in /api/v1/podcast")
+        print(f"[route:/api/v1/podcast][error] {type(exc).__name__}: {exc}")
+        return PodcastResponse(
+            script="Host: We could not generate the podcast right now.\nExpert: Please try again in a moment."
         )
 
 

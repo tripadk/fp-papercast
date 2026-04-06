@@ -67,22 +67,43 @@ def answer_question(
     goal: str = "general",
     learning_mode: str = "beginner",
 ) -> str:
-    del history, goal, learning_mode
+    del goal, learning_mode
     paper_text = (context or "").strip() or (
         "Mock paper content: This paper studies a method, reports some results, and discusses limitations."
     )
     prompt = (
         "Answer the question based on the paper. If not found, say 'Not in paper'.\n\n"
-        f"Paper:\n{paper_text[:6000]}\n\n"
+        f"Paper:\n{paper_text[:20000]}\n\n"
         f"Question:\n{(question or '').strip()}"
     )
-    fallback = "Not in paper"
-    return generate_response(
-        prompt,
-        system_prompt="Answer only from the paper. If the paper does not contain it, reply exactly: Not in paper.",
-        max_tokens=300,
-        fallback=fallback,
-    )
+    
+    messages = [{"role": "system", "content": "Answer only from the paper. If the paper does not contain it, reply exactly: Not in paper."}]
+    if history:
+        for msg in history[-10:]:
+            role = msg.get("role", "user")
+            msg_content = msg.get("content", "")
+            if role in ["user", "assistant"]:
+                messages.append({"role": role, "content": msg_content})
+    messages.append({"role": "user", "content": prompt})
+
+    try:
+        print(f"[llm][prompt] {_clip(prompt)}")
+        client = _groq_client()
+        response = client.chat.completions.create(
+            model=settings.groq_model,
+            messages=messages,
+            temperature=0.2,
+            max_tokens=800,
+        )
+        content_res = (response.choices[0].message.content or "").strip()
+        if not content_res:
+            content_res = "Not in paper"
+        print(f"[llm][response] {_clip(content_res)}")
+        return content_res
+    except Exception as exc:
+        logger.exception("Groq request failed")
+        print(f"[llm][error] {type(exc).__name__}: {exc}")
+        return "Not in paper"
 
 
 def generate_podcast_script(paper_content: str) -> str:

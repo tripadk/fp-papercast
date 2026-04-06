@@ -148,6 +148,14 @@ class LearningInsightsResponse(BaseModel):
     recommendations: list[LearningInsightItem] = Field(default_factory=list)
 
 
+class LearningInsightsApiResponse(BaseModel):
+    user_email: str
+    progress_summary: str
+    strengths: list[str] = Field(default_factory=list)
+    weaknesses: list[str] = Field(default_factory=list)
+    recommendations: list[str] = Field(default_factory=list)
+
+
 class PaperRecommendationsResponse(BaseModel):
     source: str
     paper_id: str = ""

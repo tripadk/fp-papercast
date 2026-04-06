@@ -87,6 +87,15 @@ export type ChatResponse = {
   answer: string;
 };
 
+export type PodcastRequest = {
+  paper_id?: string;
+  paper_content?: string;
+};
+
+export type PodcastResponse = {
+  script: string;
+};
+
 export type ChatMessage = {
   role: "user" | "assistant";
   content: string;
@@ -275,6 +284,14 @@ export type LearningStateResponse = {
   goal: StudyGoal;
   topics: TopicLearningState[];
   updated_at: string;
+};
+
+export type LearningInsightsResponse = {
+  user_email: string;
+  progress_summary: string;
+  strengths: string[];
+  weaknesses: string[];
+  recommendations: string[];
 };
 
 export type LearningNextActionRequest = {

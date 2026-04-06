@@ -110,7 +110,9 @@ export default function DashboardPage() {
     if (!paperId) return;
 
     const values = Object.values(taskStatus);
-    const hasPending = values.length > 0 && values.some((statusValue) => statusValue !== "completed");
+    const hasPending =
+      values.length > 0 &&
+      values.some((statusValue) => ["pending", "queued", "processing", "in_progress"].includes(statusValue));
     if (!hasPending) return;
 
     let cancelled = false;
@@ -384,6 +386,8 @@ export default function DashboardPage() {
                     transcriptSentences={result?.transcript_sentences ?? []}
                     podcastLength={result?.podcast_length ?? podcastLength}
                     podcastStyle={result?.podcast_style ?? podcastStyle}
+                    paperId={result?.paper_id ?? null}
+                    paperSummary={result?.summary ?? null}
                     onPodcastLengthChange={setPodcastLength}
                     onPodcastStyleChange={setPodcastStyle}
                   />
