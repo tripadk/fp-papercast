@@ -13,7 +13,7 @@ from app.routers.content import router as content_router
 from app.routers.events import router as events_router
 from app.routers.learning import router as learning_router
 from app.routers.papers import _build_upload_response, _get_paper_record, _process_upload
-from app.schemas import ChatRequest, ChatResponse, PodcastRequest, PodcastResponse, UploadResponse, PaperHistoryResponse, PaperHistoryItem, LearningInsightsResponse, LearningInsightsApiResponse
+from app.schemas import ChatRequest, ChatResponse, PodcastRequest, PodcastResponse, UploadResponse, PaperHistoryResponse, PaperHistoryItem
 from app.services.event_ledger_service import init_event_ledger
 from app.services.llm_service import generate_podcast_script
 from app.store import PAPER_STORE
@@ -245,14 +245,3 @@ async def fallback_get_user_history(user_email: str = Query(...)) -> PaperHistor
     history.sort(key=lambda x: x.upload_timestamp, reverse=True)
     return PaperHistoryResponse(papers=history)
 
-from app.routers.learning_state import get_learning_insights, get_learning_insights_api
-
-@app.get("/api/v1/learning-state", response_model=LearningInsightsResponse)
-@app.get("/api/v1/learning-state/", response_model=LearningInsightsResponse)
-async def fallback_learning_state_get(user_email: str = Query(...)) -> LearningInsightsResponse:
-    return await get_learning_insights(user_email)
-
-@app.get("/api/v1/learning-insights", response_model=LearningInsightsApiResponse)
-@app.get("/api/v1/learning-insights/", response_model=LearningInsightsApiResponse)
-async def fallback_learning_insights_get(user_email: str = Query(...)) -> LearningInsightsApiResponse:
-    return await get_learning_insights_api(user_email)
