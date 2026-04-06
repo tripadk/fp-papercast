@@ -13,7 +13,7 @@ from app.routers.content import router as content_router
 from app.routers.events import router as events_router
 from app.routers.learning import router as learning_router
 from app.routers.papers import _build_upload_response, _get_paper_record, _process_upload
-from app.schemas import ChatRequest, ChatResponse, PodcastRequest, PodcastResponse, UploadResponse
+from app.schemas import ChatRequest, ChatResponse, PodcastRequest, PodcastResponse, UploadResponse, PaperHistoryResponse, PaperHistoryItem, LearningInsightsResponse, LearningInsightsApiResponse
 from app.services.event_ledger_service import init_event_ledger
 from app.services.llm_service import generate_podcast_script
 from app.store import PAPER_STORE
@@ -208,6 +208,7 @@ async def podcast_root(payload: PodcastRequest) -> PodcastResponse:
 
 
 @app.get("/status/{content_id}", response_model=UploadResponse)
+@app.get("/papers/status/{content_id}", response_model=UploadResponse)
 async def status_root(content_id: str) -> UploadResponse:
     print(f"[route:/status] request received content_id={content_id}")
     try:
@@ -226,3 +227,33 @@ async def status_root(content_id: str) -> UploadResponse:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+@app.get("/api/v1/user/history", response_model=PaperHistoryResponse)
+@app.get("/api/v1/user/history/", response_model=PaperHistoryResponse)
+async def fallback_get_user_history(user_email: str = Query(...)) -> PaperHistoryResponse:
+    history = []
+    for pid, record in PAPER_STORE.items():
+        if record.get("user_email") == user_email or user_email == "anonymous@local":
+            history.append(PaperHistoryItem(
+                paper_id=pid,
+                user_email=record.get("user_email", "anonymous@local"),
+                paper_title=record.get("paper_title") or "Untitled",
+                upload_timestamp=record.get("created_at") or "",
+                summary=record.get("summary") or "Processing...",
+                audio_url=record.get("audio_url") or ""
+            ))
+    history.sort(key=lambda x: x.upload_timestamp, reverse=True)
+    return PaperHistoryResponse(papers=history)
+
+from fastapi import Query
+from app.routers.learning_state import get_learning_insights, get_learning_insights_api
+
+@app.get("/api/v1/learning-state", response_model=LearningInsightsResponse)
+@app.get("/api/v1/learning-state/", response_model=LearningInsightsResponse)
+async def fallback_learning_state_get(user_email: str = Query(...)) -> LearningInsightsResponse:
+    return await get_learning_insights(user_email)
+
+@app.get("/api/v1/learning-insights", response_model=LearningInsightsApiResponse)
+@app.get("/api/v1/learning-insights/", response_model=LearningInsightsApiResponse)
+async def fallback_learning_insights_get(user_email: str = Query(...)) -> LearningInsightsApiResponse:
+    return await get_learning_insights_api(user_email)
