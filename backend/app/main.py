@@ -2,7 +2,7 @@ from typing import Literal
 import logging
 import os
 
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, UploadFile, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -245,7 +245,6 @@ async def fallback_get_user_history(user_email: str = Query(...)) -> PaperHistor
     history.sort(key=lambda x: x.upload_timestamp, reverse=True)
     return PaperHistoryResponse(papers=history)
 
-from fastapi import Query
 from app.routers.learning_state import get_learning_insights, get_learning_insights_api
 
 @app.get("/api/v1/learning-state", response_model=LearningInsightsResponse)
