@@ -2,9 +2,10 @@ fastapi==0.115.0
 uvicorn[standard]==0.30.6
 python-multipart==0.0.9
 pypdf==4.3.1
-groq
-gTTS
-sentence-transformers
-reportlab
+groq==0.13.0
+gTTS==2.5.3
+reportlab==4.2.5
 python-dotenv==1.0.1
 pydantic-settings==2.4.0
+httpx==0.27.2
+requests==2.32.3
