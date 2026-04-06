@@ -433,9 +433,19 @@ async def _run_background_processing(paper_id: str) -> None:
     if not isinstance(record, dict):
         return
 
-    def set_status(part: str, value: str) -> None:
-        status = record.setdefault("task_status", _initial_task_status())
-        status[part] = value
+    def set_status(key: str, val: str) -> None:
+        if isinstance(record.get("task_status"), dict):
+            record["task_status"][key] = val
+        
+        # Immediately update the processing status list for frontend polling
+        status = record.get("task_status", {})
+        record["processing_status"] = [
+            "Summary Ready" if status.get("summary") == "completed" else "Summary Pending",
+            "Notes Ready" if status.get("notes") == "completed" else "Notes Pending",
+            "Flashcards Ready" if status.get("flashcards") == "completed" else "Flashcards Pending",
+            "Transcript Ready" if status.get("transcript") == "completed" else "Transcript Pending",
+            "Audio Ready" if status.get("audio") == "completed" and record.get("audio_ready") else "Audio Pending",
+        ]
         _save_cache(record)
         save_state()
 
@@ -534,11 +544,22 @@ async def _run_background_processing(paper_id: str) -> None:
         set_status("notes", "completed")
         set_status("flashcards", "completed")
 
-        chapters = await asyncio.to_thread(generate_podcast_chapters, transcript)
-        transcript_sentences = await asyncio.to_thread(generate_timestamped_sentences, transcript)
-        transcript_file_path = os.path.join(settings.transcript_dir, f"{paper_id}.txt")
-        with open(transcript_file_path, "w", encoding="utf-8") as transcript_file:
-            transcript_file.write(transcript)
+        try:
+            chapters = await asyncio.to_thread(generate_podcast_chapters, transcript)
+        except Exception:
+            chapters = [{"title": "Introduction", "start_time": "00:00:00", "summary": "Full audio track"}]
+
+        try:
+            transcript_sentences = await asyncio.to_thread(generate_timestamped_sentences, transcript)
+        except Exception:
+            transcript_sentences = [{"text": transcript, "start_time": "00:00:00", "speaker": "Host"}]
+            
+        try:
+            transcript_file_path = os.path.join(settings.transcript_dir, f"{paper_id}.txt")
+            with open(transcript_file_path, "w", encoding="utf-8") as transcript_file:
+                transcript_file.write(transcript)
+        except Exception:
+            transcript_file_path = ""
 
         notes_content = (
             f"Core Idea\n{study_notes.get('core_idea', '')}\n\n"

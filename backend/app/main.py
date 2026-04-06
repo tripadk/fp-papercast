@@ -173,6 +173,7 @@ async def chat_root(payload: ChatRequest) -> ChatResponse:
 
 
 @app.post("/api/v1/chat", response_model=ChatResponse)
+@app.post("/api/v1/chat/", response_model=ChatResponse)
 async def api_v1_chat(payload: ChatRequest) -> ChatResponse:
     print(f"[route:/api/v1/chat] request received paper_id={payload.paper_id} history_items={len(payload.history)}")
     try:
@@ -189,6 +190,7 @@ async def api_v1_chat(payload: ChatRequest) -> ChatResponse:
 
 
 @app.post("/api/v1/podcast", response_model=PodcastResponse)
+@app.post("/api/v1/podcast/", response_model=PodcastResponse)
 async def podcast_root(payload: PodcastRequest) -> PodcastResponse:
     print(f"[route:/api/v1/podcast] request received paper_id={payload.paper_id}")
     try:

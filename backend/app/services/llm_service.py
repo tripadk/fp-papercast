@@ -172,10 +172,10 @@ def generate_learning_bundle(
     del podcast_length, podcast_style, goal, learning_mode
     source = (text or "").strip()
     summary = generate_response(
-        f"Summarize this paper in simple study notes.\n\nPaper:\n{source[:7000]}",
-        system_prompt="Write a short, clear summary for a student.",
-        max_tokens=400,
-        fallback=_fallback_text(source, "This paper describes a method, its results, and its main takeaway."),
+        f"Summarize this paper in detail with key takeaways, methodology, and extensive explanation.\n\nPaper:\n{source[:12000]}",
+        system_prompt="Write a comprehensive, detailed summary for a student. Ensure all key points, methods, and results are thoroughly explained in at least 3 distinct paragraphs.",
+        max_tokens=1200,
+        fallback=_fallback_text(source, "This paper describes a method, its results, and its main takeaway. The details provide further methodology and evaluation constraints."),
     )
     transcript = generate_podcast_script(source)
     return {
