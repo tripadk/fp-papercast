@@ -9,7 +9,6 @@ import { ResearchToolkit } from "@/components/research-toolkit";
 import { UploadForm } from "@/components/upload-form";
 import { MethodologyDiagram } from "@/components/methodology-diagram";
 import { RelatedPapers } from "@/components/related-papers";
-import { LearningInsights } from "@/components/learning-insights";
 import SummaryCard from "@/components/summary-card";
 import { PodcastAudioPlayer } from "@/components/audio-player";
 import { ChatbotPanel } from "@/components/chatbot";
@@ -317,10 +316,6 @@ export default function DashboardPage() {
           >
             Research Toolkit
           </button>
-        </section>
-
-        <section className="mt-8">
-          <LearningInsights userEmail={userEmail} paperId={result?.paper_id ?? null} />
         </section>
 
         {activeTab === "overview" ? (
