@@ -54,8 +54,8 @@ app.include_router(user.router)
 app.include_router(chat.router)
 app.include_router(revision.router)
 app.include_router(learning_state.router)
-app.include_router(learning_state.v1_router)
-app.include_router(learning_state.insights_router)
+# app.include_router(learning_state.v1_router) # Handled by fallback in main.py
+# app.include_router(learning_state.insights_router) # Handled by fallback in main.py
 app.include_router(content_router)
 app.include_router(events_router)
 app.include_router(learning_router)
