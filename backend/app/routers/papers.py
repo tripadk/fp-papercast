@@ -244,7 +244,7 @@ def _default_knowledge_graph_payload() -> dict[str, Any]:
 
 def _initial_task_status() -> dict[str, str]:
     return {
-        "summary": "completed",
+        "summary": "pending",
         "notes": "pending",
         "flashcards": "pending",
         "transcript": "pending",
@@ -337,16 +337,8 @@ async def _process_content(
     limited_text = _normalize_for_prompt(text)
     title_from_text, _ = extract_title_and_abstract(text)
     paper_title = (title or "").strip() or title_from_text or "Untitled Content"
-    precomputed_bundle = await asyncio.to_thread(
-        generate_learning_bundle,
-        limited_text,
-        podcast_length,
-        podcast_style,
-        study_goal,
-        learning_mode,
-    )
-    summary_text = str(precomputed_bundle.get("summary", "")).strip()
-    summary_text = translate_text(summary_text, output_language)
+    
+    summary_text = "Processing summary in background..."
 
     created_at = datetime.now(UTC).isoformat()
     unified_content = _build_unified_content(
@@ -394,7 +386,7 @@ async def _process_content(
         "top_citations": [],
         "study_notes": _default_study_notes(),
         "importance_extraction": _default_importance_extraction(),
-        "precomputed_bundle": precomputed_bundle if isinstance(precomputed_bundle, dict) else {},
+        "precomputed_bundle": {},
         "knowledge_graph": graph_payload.get("graph", {"topics": []}),
         "knowledge_navigation": graph_payload.get("navigation", []),
         "learning_path": graph_payload.get("learning_path", []),
@@ -482,6 +474,12 @@ async def _run_background_processing(paper_id: str) -> None:
         if isinstance(bundle_result, Exception):
             logger.exception("Background bundle failed for paper_id=%s", paper_id)
             return
+
+        summary_text = str(bundle_result.get("summary", "")).strip()
+        summary_text = translate_text(summary_text, output_language)
+        if summary_text:
+            record["summary"] = summary_text
+        set_status("summary", "completed")
 
         study_notes = bundle_result.get("study_notes", {})
         if not isinstance(study_notes, dict):

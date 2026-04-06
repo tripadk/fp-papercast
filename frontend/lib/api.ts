@@ -99,7 +99,7 @@ export async function generatePodcast(payload: { paperId?: string; paperContent?
 }
 
 export async function fetchLearningInsights(userEmail: string) {
-  const response = await fetch(api(`/api/v1/learning-insights?user_email=${encodeURIComponent(userEmail)}`));
+  const response = await fetch(api(`/api/v1/learning-state?user_email=${encodeURIComponent(userEmail)}`));
   if (!response.ok) {
     throw new Error(`Learning insights failed: ${await readErrorMessage(response)}`);
   }
